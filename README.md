@@ -24,3 +24,10 @@ npm start              # http://localhost:3001
 4. 고쳐서 해결된 피드백은 보드에서 "반영"을 끔
 
 피드백마다 어떤 프롬프트 버전에서 나온 결과인지 기록됩니다.
+
+## 배포 (Render)
+
+Render 대시보드 → **New → Blueprint** → 이 저장소 선택 → `OPENAI_API_KEY`, `SITE_PASSWORD` 입력.
+`SITE_PASSWORD`는 꼭 채워주세요 — 이미지 생성은 OpenAI 과금이 발생합니다.
+
+무료 플랜은 슬립 후 재시작되면 디스크가 초기화돼서 `data/`(피드백, 프롬프트 버전, 이미지)가 사라질 수 있어요.
