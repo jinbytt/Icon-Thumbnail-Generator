@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Icon Thumbnail Generator</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>Icon Thumbnail Generator</h1>
+      <span class="version"><span id="appVersion"></span> · 프롬프트 <strong id="promptVersion">v1</strong></span>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="field">
+          <label class="label subject-label" for="subjectInput">SUBJECT</label>
+          <textarea id="subjectInput" class="input subject-input" rows="4" placeholder="어떤 서비스/컨셉인지 자유롭게 써주세요.&#10;예: 여러 지점을 돌며 스탬프를 모으면 완료되는 이벤트"></textarea>
+          <select id="serviceSelect" class="input small service-select"></select>
+        </div>
+
+        <div class="field">
+          <span class="label">배경 컬러</span>
+          <div id="hueChips" class="chips"></div>
+        </div>
+
+        <div class="field">
+          <span class="label">스타일 레퍼런스 (선택)</span>
+          <div class="reference-row">
+            <label class="ghost-btn" for="referenceInput">이미지 올리기</label>
+            <input type="file" id="referenceInput" accept="image/png,image/jpeg,image/webp" hidden />
+            <img id="referenceThumb" class="reference-thumb" alt="레퍼런스" hidden />
+            <button id="referenceClear" class="link-btn" type="button" hidden>지우기</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="modelSelect">모델</label>
+          <select id="modelSelect" class="input"></select>
+        </div>
+
+        <div class="field inline-fields">
+          <label class="label">장수
+            <select id="countSelect" class="input small">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <label class="label">품질
+            <select id="qualitySelect" class="input small"></select>
+          </label>
+        </div>
+
+        <button id="generateBtn" class="primary-btn" type="button">생성하기</button>
+        <p id="errorMsg" class="error-msg" hidden></p>
+
+        <details class="details">
+          <summary>✏️ 프롬프트 편집 · 버전</summary>
+          <div class="version-row">
+            <select id="versionSelect" class="input small"></select>
+            <button id="loadVersionBtn" class="ghost-btn" type="button">불러오기</button>
+          </div>
+          <div id="sectionEditors" class="section-editors"></div>
+          <input id="versionNote" class="input" placeholder="이번 버전에서 바꾼 점 (예: 구도 여백 줄임)" />
+          <button id="saveVersionBtn" class="ghost-btn full" type="button">새 버전으로 저장</button>
+        </details>
+
+        <details class="details">
+          <summary>👀 최종 프롬프트 미리보기</summary>
+          <textarea id="promptPreview" class="input mono" rows="14" readonly></textarea>
+          <button id="copyPromptBtn" class="ghost-btn full" type="button">복사</button>
+        </details>
+      </section>
+
+      <section class="results">
+        <div id="resultGrid" class="result-grid">
+          <p class="placeholder">생성하면 여기에 표시돼요.</p>
+        </div>
+      </section>
+    </main>
+
+    <section class="board">
+      <div class="board-head">
+        <h2>피드백 보드</h2>
+        <div id="boardTabs" class="chips"></div>
+      </div>
+      <p class="hint">👎 항목 중 <strong>반영</strong>이 켜진 메모는 다음 생성부터 프롬프트 [FEEDBACK] 섹션에 들어가요. 프롬프트를 직접 고쳐서 해결됐으면 꺼주세요.</p>
+      <div id="categoryStats" class="category-stats"></div>
+      <div id="feedbackList" class="feedback-list"></div>
+    </section>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
