@@ -409,13 +409,16 @@ function download(r) {
 }
 
 // Copies the 502×310 deliverable (same file as the download button).
+// The blob is handed over as a Promise so clipboard.write() runs right inside
+// the click — Safari rejects the write if anything is awaited before it.
 async function copyImage(r, btn) {
   try {
-    const blob = await (await fetch(r.output)).blob();
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    const blob = fetch(r.output).then((res) => res.blob());
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     btn.textContent = "복사됨!";
-  } catch {
+  } catch (err) {
     btn.textContent = "복사 실패";
+    showError(`이미지 복사가 막혔어요 (${err.name}). 이미지를 우클릭 → "이미지 복사"로 복사하거나 ⬇ 다운로드를 써주세요.`);
   }
   setTimeout(() => (btn.textContent = "📋 복사"), 1400);
 }
