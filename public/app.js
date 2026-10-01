@@ -6,6 +6,7 @@ const serviceSelectEl = $("serviceSelect");
 const subjectInputEl = $("subjectInput");
 const hueChipsEl = $("hueChips");
 const genderChipsEl = $("genderChips");
+const personChipsEl = $("personChips");
 const referenceInputEl = $("referenceInput");
 const referenceThumbEl = $("referenceThumb");
 const referenceClearEl = $("referenceClear");
@@ -48,6 +49,7 @@ const state = {
   dirty: false, // editors changed since load/save
   hueMode: "random",
   hueCursor: Math.floor(Math.random() * HUES.length),
+  personMode: "auto", // auto | none | include
   genderMode: "random",
   genderCursor: Math.floor(Math.random() * GENDERS.length),
   referenceImage: null,
@@ -127,7 +129,7 @@ function attachmentsNote(variation) {
   const items = [];
   if (variation) items.push("previous result to vary — follow [VARIATION]");
   if (state.referenceImage) items.push("style reference — use it as described in [REFERENCE RULE]");
-  if (state.assets.characterReference) {
+  if (state.assets.characterReference && state.personMode !== "none") {
     const label = state.sections.find((s) => s.id === "character")?.label ?? "HUMAN ILLUSTRATION";
     items.push(`human reference — use it only as described in [${label}]`);
   }
@@ -155,17 +157,33 @@ const VARIATION_MODES = [
   },
 ];
 
-function genderLine(gender) {
+// 인물 chips. Long human rules in every prompt nudge the model into adding
+// people, so "auto" leans hard toward objects and "none" drops them entirely.
+const PERSON_MODES = [
+  { id: "auto", label: "🤖 필요할 때만" },
+  { id: "none", label: "🙅 사람 없이" },
+  { id: "include", label: "🧑 사람 넣기" },
+];
+
+const NO_PEOPLE_BLOCK = `[NO PEOPLE — PRIORITY]
+Do not depict any people, faces, heads, hands, silhouettes or human figures. Communicate SUBJECT with objects, devices and symbols only.`;
+
+function personLines(gender) {
   const g = GENDERS.find((x) => x.id === gender) ?? GENDERS[0];
-  return `If a person appears, depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
+  const who = `depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
+  if (state.personMode === "include") return `Include a person as a key element of the icon. ${who[0].toUpperCase()}${who.slice(1)}`;
+  return `Default to NO people. Add a person only if SUBJECT cannot be understood from objects or symbols alone (for example a service whose core is a face or a photo of someone). Only in that case, ${who}`;
 }
 
 function buildPrompt(subject, hue, variation = null, gender = previewGender()) {
-  const blocks = state.sections.map((s) => {
-    const text = s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue);
-    return `[${s.label}]\n${text}${s.id === "character" ? `\n${genderLine(gender)}` : ""}`;
-  });
-  if (!state.sections.some((s) => s.id === "character")) blocks.push(`[PERSON — IF NEEDED]\n${genderLine(gender)}`);
+  const blocks = state.sections
+    .filter((s) => !(state.personMode === "none" && s.id === "character"))
+    .map((s) => {
+      const text = s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue);
+      return `[${s.label}]\n${text}${s.id === "character" ? `\n${personLines(gender)}` : ""}`;
+    });
+  if (state.personMode === "none") blocks.push(NO_PEOPLE_BLOCK);
+  else if (!state.sections.some((s) => s.id === "character")) blocks.push(`[PERSON]\n${personLines(gender)}`);
   if (variation) {
     const mode = VARIATION_MODES.find((m) => m.id === variation.mode) ?? VARIATION_MODES[0];
     const extra = variation.memo ? `\nChange requested: ${variation.memo}` : "";
@@ -240,6 +258,17 @@ function renderHues() {
 }
 
 function renderGenders() {
+  personChipsEl.innerHTML = "";
+  PERSON_MODES.forEach((m) => {
+    const chip = el("button", { type: "button", className: `chip${state.personMode === m.id ? " selected" : ""}`, textContent: m.label });
+    chip.addEventListener("click", () => {
+      state.personMode = m.id;
+      renderGenders();
+      updatePreview();
+    });
+    personChipsEl.appendChild(chip);
+  });
+  genderChipsEl.hidden = state.personMode === "none";
   genderChipsEl.innerHTML = "";
   [{ id: "random", label: "🎲 번갈아" }, ...GENDERS].forEach((g) => {
     const chip = el("button", { type: "button", className: `chip${state.genderMode === g.id ? " selected" : ""}`, textContent: g.label });
@@ -642,7 +671,7 @@ async function runBatch(items) {
             prompt: r.prompt,
             sourceImage: r.sourceImage,
             referenceImage: state.referenceImage,
-            characterReference: state.assets.characterReference,
+            characterReference: state.personMode === "none" ? undefined : state.assets.characterReference,
             quality,
             model,
           }),
