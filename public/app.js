@@ -41,7 +41,7 @@ const typeManageEl = $("typeManage");
 const BASE_VERSION = { version: "v1", sections: DEFAULT_SECTIONS, note: "기본 (ChatGPT 세션)" };
 
 const state = {
-  types: [{ id: "icon", name: "3D 아이콘", builtIn: true }],
+  types: [{ id: "icon", name: "새틴 파스텔", builtIn: true }],
   typeId: "icon", // active tab
   versions: [BASE_VERSION],
   loadedVersion: "v1", // version the editors were loaded from
@@ -496,7 +496,7 @@ function renderTypeTabs() {
   const add = el("button", { type: "button", className: "type-tab add", textContent: "+ 새 타입" });
   add.addEventListener("click", openTypeDialog);
   typeTabsEl.appendChild(add);
-  typeManageEl.hidden = !!currentType().builtIn;
+  $("deleteTypeBtn").hidden = !!currentType().builtIn; // built-in tabs can be renamed, not deleted
 }
 
 async function switchType(id, { force = false } = {}) {

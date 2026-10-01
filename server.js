@@ -109,11 +109,13 @@ async function storeImage(dataUrl) {
 // v1 as the first saved version. Every save becomes a new version so feedback
 // can be traced back to the exact prompt that produced it.
 
-const BUILT_IN_TYPES = [{ id: "icon", name: "3D 아이콘", builtIn: true }];
+const BUILT_IN_TYPES = [{ id: "icon", name: "새틴 파스텔", builtIn: true }];
 const TYPE_ID_RE = /^[a-z0-9]{1,20}$/;
 
+// Built-in tabs can be renamed too; their names live in type-names.json.
 async function listTypes() {
-  return [...BUILT_IN_TYPES, ...(await readJson("types.json", []))];
+  const names = await readJson("type-names.json", {});
+  return [...BUILT_IN_TYPES.map((t) => ({ ...t, name: names[t.id] ?? t.name })), ...(await readJson("types.json", []))];
 }
 
 async function resolveType(id) {
@@ -164,11 +166,17 @@ app.post(
 app.patch(
   "/api/types/:id",
   route(async (req, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 30) : "";
+    if (!name) return res.status(400).json({ error: "타입 이름을 입력해주세요." });
+    if (BUILT_IN_TYPES.some((t) => t.id === req.params.id)) {
+      const names = await readJson("type-names.json", {});
+      names[req.params.id] = name;
+      await writeJson("type-names.json", names, `Rename built-in type to ${name}`);
+      return res.json({ types: await listTypes() });
+    }
     const custom = await readJson("types.json", []);
     const type = custom.find((t) => t.id === req.params.id);
     if (!type) return res.status(404).json({ error: "Not found." });
-    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 30) : "";
-    if (!name) return res.status(400).json({ error: "타입 이름을 입력해주세요." });
     type.name = name;
     await writeJson("types.json", custom, `Rename type to ${name}`);
     res.json({ types: await listTypes() });
