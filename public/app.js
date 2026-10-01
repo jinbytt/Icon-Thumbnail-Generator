@@ -49,7 +49,7 @@ const state = {
   dirty: false, // editors changed since load/save
   hueMode: "random",
   hueCursor: Math.floor(Math.random() * HUES.length),
-  personMode: "auto", // auto | none | include
+  personMode: "none", // none | auto
   genderMode: "random",
   genderCursor: Math.floor(Math.random() * GENDERS.length),
   referenceImage: null,
@@ -158,11 +158,11 @@ const VARIATION_MODES = [
 ];
 
 // 인물 chips. Long human rules in every prompt nudge the model into adding
-// people, so "auto" leans hard toward objects and "none" drops them entirely.
+// people, so the default drops them entirely and "auto" leans hard toward
+// objects.
 const PERSON_MODES = [
-  { id: "auto", label: "🤖 필요할 때만" },
   { id: "none", label: "🙅 사람 없이" },
-  { id: "include", label: "🧑 사람 넣기" },
+  { id: "auto", label: "🤖 꼭 필요할 때만" },
 ];
 
 const NO_PEOPLE_BLOCK = `[NO PEOPLE — PRIORITY]
@@ -171,7 +171,6 @@ Do not depict any people, faces, heads, hands, silhouettes or human figures. Com
 function personLines(gender) {
   const g = GENDERS.find((x) => x.id === gender) ?? GENDERS[0];
   const who = `depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
-  if (state.personMode === "include") return `Include a person as a key element of the icon. ${who[0].toUpperCase()}${who.slice(1)}`;
   return `Default to NO people. Add a person only if SUBJECT cannot be understood from objects or symbols alone (for example a service whose core is a face or a photo of someone). Only in that case, ${who}`;
 }
 
