@@ -306,7 +306,7 @@ app.get("/api/models", (req, res) => {
 // --- Image generation --------------------------------------------------------
 
 app.post("/api/generate", async (req, res) => {
-  const { prompt, referenceImage, characterReference, quality, model: requestedModel } = req.body ?? {};
+  const { prompt, sourceImage, referenceImage, characterReference, quality, model: requestedModel } = req.body ?? {};
   if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "Prompt is required." });
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -319,7 +319,8 @@ app.post("/api/generate", async (req, res) => {
   try {
     let response;
     // Order matters: the prompt's [ATTACHED IMAGES] note numbers them the same way.
-    const references = [parseDataUrl(referenceImage), await readSavedImage(characterReference)].filter(Boolean);
+    // sourceImage is a previous result being varied (🔁 배리에이션).
+    const references = [parseDataUrl(sourceImage), parseDataUrl(referenceImage), await readSavedImage(characterReference)].filter(Boolean);
 
     if (references.length) {
       // References go through the edits endpoint; the prompt's rules limit

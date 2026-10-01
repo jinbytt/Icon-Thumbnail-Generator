@@ -119,9 +119,10 @@ function activeFeedbackLines() {
 }
 
 // Tells the model which attached image is which; numbering matches the order
-// the server appends them (style reference first, then character reference).
-function attachmentsNote() {
+// the server appends them (variation source, style reference, human reference).
+function attachmentsNote(variation) {
   const items = [];
+  if (variation) items.push("previous result to vary — follow [VARIATION]");
   if (state.referenceImage) items.push("style reference — use it as described in [REFERENCE RULE]");
   if (state.assets.characterReference) {
     const label = state.sections.find((s) => s.id === "character")?.label ?? "HUMAN ILLUSTRATION";
@@ -131,11 +132,36 @@ function attachmentsNote() {
   return `[ATTACHED IMAGES]\n${items.map((t, i) => `Image ${i + 1}: ${t}.`).join("\n")}`;
 }
 
-function buildPrompt(subject, hue) {
+// 🔁 배리에이션 modes. The object/icon design from the source image is kept;
+// only what the mode names is allowed to change.
+const VARIATION_MODES = [
+  {
+    id: "color",
+    label: "🎨 컬러",
+    text: "Keep the main object exactly the same as the previous result — same symbol, shapes, silhouette, proportions, angle, composition and materials. Change only the color treatment: use the background hue specified below and re-harmonize the object's colors to match it.",
+  },
+  {
+    id: "composition",
+    label: "📐 구도·각도",
+    text: "Keep the same main object design as the previous result — same symbol, shapes, details, materials and color palette. Vary only the viewing angle, slight rotation, scale or the arrangement of supporting elements, keeping it one centered icon.",
+  },
+  {
+    id: "custom",
+    label: "✍️ 직접",
+    text: "Keep the main object design from the previous result — same symbol, shapes and materials. Apply only the change described below.",
+  },
+];
+
+function buildPrompt(subject, hue, variation = null) {
   const blocks = state.sections.map(
     (s) => `[${s.label}]\n${s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue)}`
   );
-  const note = attachmentsNote();
+  if (variation) {
+    const mode = VARIATION_MODES.find((m) => m.id === variation.mode) ?? VARIATION_MODES[0];
+    const extra = variation.memo ? `\nChange requested: ${variation.memo}` : "";
+    blocks.unshift(`[VARIATION — HIGHEST PRIORITY]\nThe first attached image is a previous result the user liked. ${mode.text}${extra}`);
+  }
+  const note = attachmentsNote(variation);
   if (note) blocks.push(note);
   const lines = activeFeedbackLines();
   if (lines.length) {
@@ -522,25 +548,50 @@ async function generate() {
     showError("SUBJECT를 입력해주세요.");
     return;
   }
-  showError(null);
-
   const count = Number(countSelectEl.value) || 1;
+  const promptVersion = currentVersionLabel();
+  await runBatch(
+    Array.from({ length: count }, () => {
+      const hue = nextHue();
+      return { subject, hue, promptVersion, prompt: buildPrompt(subject, hue) };
+    })
+  );
+}
+
+// Same object, new take: sends the liked result back as the first image.
+async function generateVariations(source, mode, memo, count) {
+  const variation = { mode, memo: memo.trim() };
+  const modeLabel = VARIATION_MODES.find((m) => m.id === mode)?.label ?? mode;
+  await runBatch(
+    Array.from({ length: count }, () => {
+      let hue = source.hue;
+      if (mode === "color") {
+        hue = nextHue();
+        if (hue === source.hue) hue = nextHue();
+      }
+      return {
+        subject: source.subject,
+        hue,
+        promptVersion: `${currentVersionLabel()} · ${modeLabel}`,
+        prompt: buildPrompt(source.subject, hue, variation),
+        sourceImage: source.full,
+        parentId: source.id,
+      };
+    })
+  );
+}
+
+async function runBatch(items) {
+  showError(null);
   const quality = qualitySelectEl.value;
   const model = modelSelectEl.value;
-  const promptVersion = currentVersionLabel();
-  const batch = Array.from({ length: count }, () => {
-    const hue = nextHue();
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      status: "loading",
-      subject,
-      hue,
-      promptVersion,
-      model,
-      typeId: state.typeId,
-      prompt: buildPrompt(subject, hue),
-    };
-  });
+  const batch = items.map((item) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    status: "loading",
+    model,
+    typeId: state.typeId,
+    ...item,
+  }));
   state.results = [...batch, ...state.results];
   renderResults();
   updatePreview();
@@ -553,6 +604,7 @@ async function generate() {
           method: "POST",
           body: JSON.stringify({
             prompt: r.prompt,
+            sourceImage: r.sourceImage,
             referenceImage: state.referenceImage,
             characterReference: state.assets.characterReference,
             quality,
@@ -563,6 +615,7 @@ async function generate() {
       } catch (err) {
         Object.assign(r, { status: "error", error: err.message });
       }
+      delete r.sourceImage; // don't keep a second copy of the parent image around
       renderResults();
     })
   );
@@ -644,6 +697,37 @@ function renderBadForm(r, container) {
   memo.focus();
 }
 
+function renderVariationForm(r, container) {
+  let mode = "color";
+  const chips = el("div", { className: "chips" });
+  VARIATION_MODES.forEach((m) => {
+    const chip = el("button", { type: "button", className: `chip${m.id === mode ? " selected" : ""}`, textContent: m.label });
+    chip.addEventListener("click", () => {
+      mode = m.id;
+      chips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("selected", c === chip));
+    });
+    chips.appendChild(chip);
+  });
+  const memo = el("textarea", {
+    className: "input",
+    rows: 2,
+    placeholder: "추가로 바꿀 점 (선택, ✍️ 직접은 필수) 예: 포인터를 위쪽으로, 좀 더 귀엽게",
+  });
+  const count = el("select", { className: "input small" }, ["1", "2", "4"].map((n) => el("option", { value: n, textContent: `${n}장` })));
+  count.value = "2";
+  const go = el("button", { type: "button", className: "ghost-btn", textContent: "🔁 만들기" });
+  go.addEventListener("click", () => {
+    if (mode === "custom" && !memo.value.trim()) {
+      memo.focus();
+      return;
+    }
+    form.remove();
+    generateVariations(r, mode, memo.value, Number(count.value));
+  });
+  const form = el("div", { className: "bad-form" }, [chips, memo, el("div", { className: "variation-actions" }, [count, go])]);
+  container.append(form);
+}
+
 function removeResult(r) {
   state.results = state.results.filter((x) => x !== r);
   renderResults();
@@ -690,7 +774,12 @@ function renderResults() {
       dl.addEventListener("click", () => download(r));
       const copy = el("button", { type: "button", className: "ghost-btn", textContent: "📋 복사" });
       copy.addEventListener("click", () => copyImage(r, copy));
-      body.append(el("div", { className: "card-actions" }, [good, bad, copy, dl]));
+      const vary = el("button", { type: "button", className: "ghost-btn vary-btn", textContent: "🔁 배리에이션" });
+      vary.addEventListener("click", () => {
+        if (body.querySelector(".bad-form")) return;
+        renderVariationForm(r, body);
+      });
+      body.append(el("div", { className: "card-actions" }, [good, bad, copy, dl]), vary);
     }
     card.append(body);
     resultGridEl.appendChild(card);

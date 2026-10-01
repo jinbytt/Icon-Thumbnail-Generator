@@ -473,6 +473,26 @@ body {
   color: var(--bad);
 }
 
+.vary-btn {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.variation-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.variation-actions .input.small {
+  margin-top: 0;
+}
+
+.variation-actions .ghost-btn {
+  flex: 1;
+  margin-top: 0;
+}
+
 .bad-form {
   margin-top: 12px;
   padding-top: 12px;
