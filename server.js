@@ -102,32 +102,118 @@ async function storeImage(dataUrl) {
   return `/images/${name}`;
 }
 
-// --- Prompt template versions -----------------------------------------------
-// Every save becomes a new version so feedback can be traced back to the
-// exact prompt that produced it. v1 is the built-in default in public/template.js.
+// --- Image types + prompt template versions -----------------------------------
+// Each image type is a tab with its own prompt, versions and feedback. "icon"
+// is built in (its v1 lives in public/template.js); custom types store their
+// v1 as the first saved version. Every save becomes a new version so feedback
+// can be traced back to the exact prompt that produced it.
+
+const BUILT_IN_TYPES = [{ id: "icon", name: "3D 아이콘", builtIn: true }];
+const TYPE_ID_RE = /^[a-z0-9]{1,20}$/;
+
+async function listTypes() {
+  return [...BUILT_IN_TYPES, ...(await readJson("types.json", []))];
+}
+
+async function resolveType(id) {
+  const type = TYPE_ID_RE.test(id ?? "") ? (await listTypes()).find((t) => t.id === id) : null;
+  return type ?? null;
+}
+
+function templateFile(typeId) {
+  return typeId === "icon" ? "template-versions.json" : `templates/${typeId}.json`;
+}
+
+function cleanSections(sections) {
+  if (!Array.isArray(sections)) return null;
+  const clean = sections
+    .filter((s) => s && typeof s.label === "string" && typeof s.text === "string")
+    .map((s) => ({ id: typeof s.id === "string" ? s.id : s.label, label: s.label, text: s.text }));
+  return clean.length ? clean : null;
+}
+
+app.get(
+  "/api/types",
+  route(async (req, res) => {
+    res.json({ types: await listTypes() });
+  })
+);
+
+app.post(
+  "/api/types",
+  route(async (req, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 30) : "";
+    const sections = cleanSections(req.body?.sections);
+    if (!name) return res.status(400).json({ error: "타입 이름을 입력해주세요." });
+    if (!sections) return res.status(400).json({ error: "프롬프트 섹션이 비어 있어요." });
+
+    const custom = await readJson("types.json", []);
+    const type = { id: `t${Date.now().toString(36)}`, name, createdAt: new Date().toISOString() };
+    await writeJson(
+      templateFile(type.id),
+      [{ version: "v1", sections, note: "처음 버전", assets: {}, createdAt: type.createdAt }],
+      `Create type ${name}`
+    );
+    custom.push(type);
+    await writeJson("types.json", custom, `Add type ${name}`);
+    res.json({ types: await listTypes(), type });
+  })
+);
+
+app.patch(
+  "/api/types/:id",
+  route(async (req, res) => {
+    const custom = await readJson("types.json", []);
+    const type = custom.find((t) => t.id === req.params.id);
+    if (!type) return res.status(404).json({ error: "Not found." });
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 30) : "";
+    if (!name) return res.status(400).json({ error: "타입 이름을 입력해주세요." });
+    type.name = name;
+    await writeJson("types.json", custom, `Rename type to ${name}`);
+    res.json({ types: await listTypes() });
+  })
+);
+
+// Only hides the tab — its prompt versions and feedback stay in storage.
+app.delete(
+  "/api/types/:id",
+  route(async (req, res) => {
+    const custom = await readJson("types.json", []);
+    const next = custom.filter((t) => t.id !== req.params.id);
+    if (next.length === custom.length) return res.status(404).json({ error: "Not found." });
+    await writeJson("types.json", next, `Remove type ${req.params.id}`);
+    res.json({ types: await listTypes() });
+  })
+);
 
 app.get(
   "/api/template",
   route(async (req, res) => {
-    res.json({ versions: await readJson("template-versions.json", []) });
+    const type = await resolveType(req.query.type ?? "icon");
+    if (!type) return res.status(404).json({ error: "Unknown image type." });
+    res.json({ versions: await readJson(templateFile(type.id), []) });
   })
 );
 
 app.post(
   "/api/template",
   route(async (req, res) => {
-    const { sections, note, assets } = req.body ?? {};
-    if (!sections || typeof sections !== "object") return res.status(400).json({ error: "sections is required." });
-    const versions = await readJson("template-versions.json", []);
+    const { note, assets } = req.body ?? {};
+    const type = await resolveType(req.body?.type ?? "icon");
+    if (!type) return res.status(404).json({ error: "Unknown image type." });
+    const sections = cleanSections(req.body?.sections);
+    if (!sections) return res.status(400).json({ error: "sections is required." });
+
+    const versions = await readJson(templateFile(type.id), []);
     const version = {
-      version: `v${versions.length + 2}`,
+      version: `v${versions.length + (type.builtIn ? 2 : 1)}`, // built-in v1 isn't stored
       sections,
       note: typeof note === "string" ? note.trim() : "",
       assets: assets && typeof assets === "object" ? assets : {},
       createdAt: new Date().toISOString(),
     };
     versions.push(version);
-    await writeJson("template-versions.json", versions, `Save prompt ${version.version}${version.note ? `: ${version.note}` : ""}`);
+    await writeJson(templateFile(type.id), versions, `Save ${type.name} ${version.version}${version.note ? `: ${version.note}` : ""}`);
     res.json({ versions });
   })
 );
@@ -165,7 +251,7 @@ app.get(
 app.post(
   "/api/feedback",
   route(async (req, res) => {
-    const { rating, categories, memo, subject, hue, promptVersion, model, image } = req.body ?? {};
+    const { rating, categories, memo, subject, hue, promptVersion, model, image, type } = req.body ?? {};
     if (rating !== "good" && rating !== "bad") return res.status(400).json({ error: "rating must be good or bad." });
     const entry = {
       id: newId(),
@@ -176,6 +262,7 @@ app.post(
       hue: typeof hue === "string" ? hue : "",
       promptVersion: typeof promptVersion === "string" ? promptVersion : "",
       model: typeof model === "string" ? model : "",
+      type: TYPE_ID_RE.test(type ?? "") ? type : "icon",
       image: await storeImage(image),
       active: rating === "bad",
       createdAt: new Date().toISOString(),

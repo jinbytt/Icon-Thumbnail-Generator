@@ -10,8 +10,31 @@
   <div class="page">
     <header class="header">
       <h1>Icon Thumbnail Generator</h1>
-      <span class="version"><span id="appVersion"></span> · 프롬프트 <strong id="promptVersion">v1</strong></span>
+      <span class="version"><span id="appVersion"></span> · <span id="typeName"></span> 프롬프트 <strong id="promptVersion">v1</strong></span>
     </header>
+
+    <nav id="typeTabs" class="type-tabs"></nav>
+
+    <dialog id="typeDialog" class="dialog">
+      <form method="dialog" class="dialog-body">
+        <h2>새 이미지 타입</h2>
+        <label class="label" for="typeNameInput">탭 이름</label>
+        <input id="typeNameInput" class="input" maxlength="30" placeholder="예: 플랫 일러스트" />
+
+        <span class="label">프롬프트 시작점</span>
+        <label class="radio"><input type="radio" name="typeSource" value="copy" checked /> 지금 탭 프롬프트 복사해서 시작</label>
+        <label class="radio"><input type="radio" name="typeSource" value="paste" /> 프롬프트 붙여넣기</label>
+        <textarea id="typePromptInput" class="input mono" rows="10" hidden
+          placeholder="[SUBJECT]&#10;...&#10;[STYLE &amp; TEXTURE]&#10;...&#10;&#10;[대괄호 제목] 기준으로 섹션이 나뉘어요."></textarea>
+        <p id="typeParseHint" class="hint" hidden></p>
+
+        <p id="typeError" class="error-msg" hidden></p>
+        <div class="dialog-actions">
+          <button value="cancel" class="ghost-btn" formnovalidate>취소</button>
+          <button id="typeCreateBtn" class="primary-btn" type="button">만들기</button>
+        </div>
+      </form>
+    </dialog>
 
     <main class="layout">
       <section class="panel">
@@ -66,6 +89,10 @@
           <div id="sectionEditors" class="section-editors"></div>
           <input id="versionNote" class="input" placeholder="이번 버전에서 바꾼 점 (예: 구도 여백 줄임)" />
           <button id="saveVersionBtn" class="ghost-btn full" type="button">새 버전으로 저장</button>
+          <div id="typeManage" class="type-manage" hidden>
+            <button id="renameTypeBtn" class="link-btn" type="button">탭 이름 바꾸기</button>
+            <button id="deleteTypeBtn" class="link-btn" type="button">탭 삭제</button>
+          </div>
         </details>
 
         <details class="details">

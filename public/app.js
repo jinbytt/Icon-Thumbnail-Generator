@@ -25,10 +25,21 @@ const resultGridEl = $("resultGrid");
 const boardTabsEl = $("boardTabs");
 const categoryStatsEl = $("categoryStats");
 const feedbackListEl = $("feedbackList");
+const typeTabsEl = $("typeTabs");
+const typeNameEl = $("typeName");
+const typeDialogEl = $("typeDialog");
+const typeNameInputEl = $("typeNameInput");
+const typePromptInputEl = $("typePromptInput");
+const typeParseHintEl = $("typeParseHint");
+const typeErrorEl = $("typeError");
+const typeCreateBtn = $("typeCreateBtn");
+const typeManageEl = $("typeManage");
 
 const BASE_VERSION = { version: "v1", sections: DEFAULT_SECTIONS, note: "기본 (ChatGPT 세션)" };
 
 const state = {
+  types: [{ id: "icon", name: "3D 아이콘", builtIn: true }],
+  typeId: "icon", // active tab
   versions: [BASE_VERSION],
   loadedVersion: "v1", // version the editors were loaded from
   sections: structuredClone(DEFAULT_SECTIONS),
@@ -80,6 +91,15 @@ function hueLabel(id) {
   return HUES.find((h) => h.id === id)?.label ?? id;
 }
 
+function currentType() {
+  return state.types.find((t) => t.id === state.typeId) ?? state.types[0];
+}
+
+// Feedback saved before tabs existed has no type — it belongs to the icon tab.
+function feedbackForType() {
+  return state.feedback.filter((f) => (f.type ?? "icon") === state.typeId);
+}
+
 function currentVersionLabel() {
   return state.dirty ? `${state.loadedVersion} + 수정중` : state.loadedVersion;
 }
@@ -87,7 +107,7 @@ function currentVersionLabel() {
 // --- Prompt building ---------------------------------------------------------
 
 function activeFeedbackLines() {
-  return state.feedback
+  return feedbackForType()
     .filter((f) => f.rating === "bad" && f.active && f.memo)
     .map((f) => {
       const cats = f.categories
@@ -138,6 +158,7 @@ function nextHue() {
 function updatePreview() {
   promptPreviewEl.value = buildPrompt(subjectInputEl.value.trim(), previewHue());
   promptVersionEl.textContent = currentVersionLabel();
+  typeNameEl.textContent = currentType().name;
 }
 
 // --- Inputs ------------------------------------------------------------------
@@ -305,14 +326,158 @@ async function saveVersion() {
   try {
     const data = await api("/api/template", {
       method: "POST",
-      body: JSON.stringify({ sections: state.sections, assets: state.assets, note: versionNoteEl.value }),
+      body: JSON.stringify({ type: state.typeId, sections: state.sections, assets: state.assets, note: versionNoteEl.value }),
     });
-    state.versions = [BASE_VERSION, ...data.versions];
+    state.versions = withBase(data.versions);
     state.loadedVersion = data.versions.at(-1).version;
     state.dirty = false;
     versionNoteEl.value = "";
     renderVersionSelect();
     updatePreview();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// --- Image type tabs ---------------------------------------------------------
+
+function withBase(versions) {
+  return currentType().builtIn ? [BASE_VERSION, ...versions] : versions;
+}
+
+function renderTypeTabs() {
+  typeTabsEl.innerHTML = "";
+  state.types.forEach((t) => {
+    const tab = el("button", { type: "button", className: `type-tab${t.id === state.typeId ? " selected" : ""}`, textContent: t.name });
+    tab.addEventListener("click", () => switchType(t.id));
+    typeTabsEl.appendChild(tab);
+  });
+  const add = el("button", { type: "button", className: "type-tab add", textContent: "+ 새 타입" });
+  add.addEventListener("click", openTypeDialog);
+  typeTabsEl.appendChild(add);
+  typeManageEl.hidden = !!currentType().builtIn;
+}
+
+async function switchType(id, { force = false } = {}) {
+  if (!force && id === state.typeId) return;
+  if (!force && state.dirty && !confirm("저장 안 한 프롬프트 수정이 있어요. 탭을 바꾸면 사라져요. 계속할까요?")) return;
+  state.typeId = id;
+  state.boardTab = "bad";
+  state.categoryFilter = null;
+  renderTypeTabs();
+  try {
+    const data = await api(`/api/template?type=${encodeURIComponent(id)}`);
+    state.versions = withBase(data.versions);
+    loadVersion(state.versions.at(-1).version);
+  } catch (err) {
+    showError(err.message);
+  }
+  renderResults();
+  renderBoard();
+  updatePreview();
+}
+
+// Splits a pasted prompt on "[SECTION NAME]" heading lines. ChatGPT copies
+// sometimes end lines with a stray backslash, so those are stripped.
+function parsePrompt(text) {
+  const sections = [];
+  text
+    .replace(/\\\s*$/gm, "")
+    .split("\n")
+    .forEach((line) => {
+      const heading = /^\s*\[(.+?)\]\s*$/.exec(line);
+      if (heading) sections.push({ label: heading[1].trim(), lines: [] });
+      else if (sections.length) sections.at(-1).lines.push(line);
+    });
+  return sections.map(({ label, lines }) => {
+    const upper = label.toUpperCase();
+    const id = upper === "SUBJECT" ? "subject" : upper.includes("HUMAN") ? "character" : upper.replace(/[^A-Z0-9]+/g, "-").toLowerCase();
+    // SUBJECT is filled per generation, so whatever was pasted there was an example.
+    return { id, label, text: id === "subject" ? "{{SUBJECT}}" : lines.join("\n").trim() };
+  });
+}
+
+function sectionsForNewType() {
+  if (typeSource() === "copy") return structuredClone(state.sections);
+  const sections = parsePrompt(typePromptInputEl.value);
+  if (sections.length && !sections.some((s) => s.id === "subject")) {
+    sections.unshift({ id: "subject", label: "SUBJECT", text: "{{SUBJECT}}" });
+  }
+  return sections;
+}
+
+function typeSource() {
+  return typeDialogEl.querySelector('input[name="typeSource"]:checked').value;
+}
+
+function updateTypeDialog() {
+  const paste = typeSource() === "paste";
+  typePromptInputEl.hidden = !paste;
+  typeParseHintEl.hidden = !paste;
+  if (paste) {
+    const sections = sectionsForNewType();
+    const hasHue = sections.some((s) => s.text.includes("{{BACKGROUND_HUE}}"));
+    typeParseHintEl.textContent = sections.length
+      ? `섹션 ${sections.length}개: ${sections.map((s) => s.label).join(" · ")}${hasHue ? "" : " — 배경 컬러를 넣을 자리({{BACKGROUND_HUE}})가 없어서 컬러 선택은 적용 안 돼요."}`
+      : "[대괄호 제목] 줄을 못 찾았어요. 예: [SUBJECT], [STYLE & TEXTURE]";
+  }
+}
+
+function openTypeDialog() {
+  typeNameInputEl.value = "";
+  typePromptInputEl.value = "";
+  typeErrorEl.hidden = true;
+  typeDialogEl.querySelector('input[value="copy"]').checked = true;
+  updateTypeDialog();
+  typeDialogEl.showModal();
+  typeNameInputEl.focus();
+}
+
+async function createType() {
+  const name = typeNameInputEl.value.trim();
+  const sections = sectionsForNewType();
+  const fail = (msg) => {
+    typeErrorEl.textContent = msg;
+    typeErrorEl.hidden = false;
+  };
+  if (!name) return fail("탭 이름을 입력해주세요.");
+  if (!sections.length) return fail("프롬프트를 붙여넣어주세요. [대괄호 제목] 기준으로 섹션이 나뉘어요.");
+  if (state.dirty && !confirm("지금 탭에 저장 안 한 수정이 있어요. 새 탭으로 넘어가면 사라져요. 계속할까요?")) return;
+
+  typeCreateBtn.disabled = true;
+  try {
+    const data = await api("/api/types", { method: "POST", body: JSON.stringify({ name, sections }) });
+    state.types = data.types;
+    typeDialogEl.close();
+    state.dirty = false;
+    await switchType(data.type.id, { force: true });
+  } catch (err) {
+    fail(err.message);
+  } finally {
+    typeCreateBtn.disabled = false;
+  }
+}
+
+async function renameType() {
+  const name = prompt("새 탭 이름", currentType().name)?.trim();
+  if (!name) return;
+  try {
+    const data = await api(`/api/types/${state.typeId}`, { method: "PATCH", body: JSON.stringify({ name }) });
+    state.types = data.types;
+    renderTypeTabs();
+    updatePreview();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function deleteType() {
+  if (!confirm(`"${currentType().name}" 탭을 삭제할까요? (저장된 프롬프트·피드백 기록은 저장소에 남아요)`)) return;
+  try {
+    const data = await api(`/api/types/${state.typeId}`, { method: "DELETE" });
+    state.types = data.types;
+    state.dirty = false;
+    await switchType("icon", { force: true });
   } catch (err) {
     showError(err.message);
   }
@@ -372,6 +537,7 @@ async function generate() {
       hue,
       promptVersion,
       model,
+      typeId: state.typeId,
       prompt: buildPrompt(subject, hue),
     };
   });
@@ -428,7 +594,17 @@ async function copyImage(r, btn) {
 async function sendFeedback(r, rating, categories = [], memo = "") {
   const data = await api("/api/feedback", {
     method: "POST",
-    body: JSON.stringify({ rating, categories, memo, subject: r.subject, hue: r.hue, promptVersion: r.promptVersion, model: r.model, image: r.output }),
+    body: JSON.stringify({
+      rating,
+      categories,
+      memo,
+      subject: r.subject,
+      hue: r.hue,
+      promptVersion: r.promptVersion,
+      model: r.model,
+      type: r.typeId,
+      image: r.output,
+    }),
   });
   state.feedback = data.feedback;
   r.rating = rating;
@@ -468,14 +644,26 @@ function renderBadForm(r, container) {
   memo.focus();
 }
 
+function removeResult(r) {
+  state.results = state.results.filter((x) => x !== r);
+  renderResults();
+}
+
 function renderResults() {
   resultGridEl.innerHTML = "";
-  if (!state.results.length) {
+  const results = state.results.filter((r) => r.typeId === state.typeId);
+  if (!results.length) {
     resultGridEl.append(el("p", { className: "placeholder", textContent: "생성하면 여기에 표시돼요." }));
     return;
   }
-  state.results.forEach((r) => {
+  results.forEach((r) => {
     const card = el("div", { className: "card" });
+    if (r.status !== "loading") {
+      // Only clears it from the screen; 👍/👎 records on the board stay.
+      const remove = el("button", { type: "button", className: "card-remove", textContent: "✕", title: "화면에서 지우기" });
+      remove.addEventListener("click", () => removeResult(r));
+      card.append(remove);
+    }
     if (r.status === "loading") card.append(el("div", { className: "card-loading", textContent: "생성 중..." }));
     else if (r.status === "error") card.append(el("div", { className: "card-loading", textContent: `실패: ${r.error}` }));
     else card.append(el("img", { className: "card-image", src: r.full, alt: r.subject }));
@@ -527,8 +715,8 @@ async function deleteFeedback(id) {
 }
 
 function renderBoard() {
-  const bad = state.feedback.filter((f) => f.rating === "bad");
-  const good = state.feedback.filter((f) => f.rating === "good");
+  const bad = feedbackForType().filter((f) => f.rating === "bad");
+  const good = feedbackForType().filter((f) => f.rating === "good");
 
   boardTabsEl.innerHTML = "";
   [
@@ -620,20 +808,29 @@ async function init() {
   loadVersionBtn.addEventListener("click", () => loadVersion(versionSelectEl.value));
   saveVersionBtn.addEventListener("click", saveVersion);
   copyPromptBtn.addEventListener("click", () => navigator.clipboard.writeText(promptPreviewEl.value));
+  typeCreateBtn.addEventListener("click", createType);
+  // Enter in the name field submits the dialog form — treat it as "만들기", not close.
+  typeDialogEl.querySelector("form").addEventListener("submit", (e) => {
+    if (e.submitter?.value === "cancel") return;
+    e.preventDefault();
+    createType();
+  });
+  typeDialogEl.querySelectorAll('input[name="typeSource"]').forEach((r) => r.addEventListener("change", updateTypeDialog));
+  typePromptInputEl.addEventListener("input", updateTypeDialog);
+  $("renameTypeBtn").addEventListener("click", renameType);
+  $("deleteTypeBtn").addEventListener("click", deleteType);
+  renderTypeTabs();
 
   try {
-    const [templates, feedback, models] = await Promise.all([api("/api/template"), api("/api/feedback"), api("/api/models")]);
+    const [types, feedback, models] = await Promise.all([api("/api/types"), api("/api/feedback"), api("/api/models")]);
     renderModels(models.models, models.defaultModel);
-    state.versions = [BASE_VERSION, ...templates.versions];
+    state.types = types.types;
     state.feedback = feedback.feedback;
-    // Start on the newest saved version so tuning picks up where it left off.
-    loadVersion(state.versions.at(-1).version);
+    // Opens the icon tab on its newest saved version so tuning picks up where it left off.
+    await switchType("icon", { force: true });
   } catch (err) {
     showError(err.message);
   }
-  renderVersionSelect();
-  renderBoard();
-  updatePreview();
 }
 
 init();
