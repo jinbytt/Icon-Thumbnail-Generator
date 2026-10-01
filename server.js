@@ -4,14 +4,12 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
+import { USING_GITHUB, readJson, writeJson, saveImage, readImage, deleteImage } from "./lib/store.js";
 
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "data");
-const IMAGE_DIR = path.join(DATA_DIR, "images");
 
 // Same family ChatGPT uses. gpt-image-2.x accepts custom sizes (multiples of
 // 16, ≥655,360 px), so ask for 251:155 directly; gpt-image-1 only has fixed
@@ -66,22 +64,25 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/images", express.static(IMAGE_DIR));
 
-// --- Tiny JSON stores -----------------------------------------------------
+// Wraps async handlers so storage errors become a JSON 500 instead of a hang.
+const route = (fn) => (req, res) =>
+  fn(req, res).catch((err) => {
+    console.error(err);
+    res.status(500).json({ error: "저장소 오류가 났어요. 잠시 후 다시 시도해주세요." });
+  });
 
-function readJson(file, fallback) {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), "utf-8"));
-  } catch {
-    return fallback;
-  }
-}
+const IMAGE_NAME_RE = /^[0-9]+-[0-9a-f]{6}\.png$/;
 
-function writeJson(file, value) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(value, null, 2));
-}
+app.get(
+  "/images/:name",
+  route(async (req, res) => {
+    if (!IMAGE_NAME_RE.test(req.params.name)) return res.status(404).end();
+    const buffer = await readImage(req.params.name);
+    if (!buffer) return res.status(404).end();
+    res.type("png").set("Cache-Control", "private, max-age=31536000, immutable").send(buffer);
+  })
+);
 
 function newId() {
   return `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
@@ -93,100 +94,123 @@ function parseDataUrl(dataUrl) {
   return { mimeType: match[1], buffer: Buffer.from(match[2], "base64") };
 }
 
-function saveImage(dataUrl) {
+async function storeImage(dataUrl) {
   const parsed = parseDataUrl(dataUrl);
   if (!parsed) return null;
-  fs.mkdirSync(IMAGE_DIR, { recursive: true });
   const name = `${newId()}.png`;
-  fs.writeFileSync(path.join(IMAGE_DIR, name), parsed.buffer);
+  await saveImage(name, parsed.buffer);
   return `/images/${name}`;
 }
 
 // --- Prompt template versions -----------------------------------------------
 // Every save becomes a new version so feedback can be traced back to the
-// exact prompt that produced it. null = "use the default in public/template.js".
+// exact prompt that produced it. v1 is the built-in default in public/template.js.
 
-app.get("/api/template", (req, res) => {
-  res.json({ versions: readJson("template-versions.json", []) });
-});
+app.get(
+  "/api/template",
+  route(async (req, res) => {
+    res.json({ versions: await readJson("template-versions.json", []) });
+  })
+);
 
-app.post("/api/template", (req, res) => {
-  const { sections, note, assets } = req.body ?? {};
-  if (!sections || typeof sections !== "object") return res.status(400).json({ error: "sections is required." });
-  const versions = readJson("template-versions.json", []);
-  const version = {
-    version: `v${versions.length + 2}`, // v1 is the built-in default
-    sections,
-    note: typeof note === "string" ? note.trim() : "",
-    assets: assets && typeof assets === "object" ? assets : {},
-    createdAt: new Date().toISOString(),
-  };
-  versions.push(version);
-  writeJson("template-versions.json", versions);
-  res.json({ versions });
-});
+app.post(
+  "/api/template",
+  route(async (req, res) => {
+    const { sections, note, assets } = req.body ?? {};
+    if (!sections || typeof sections !== "object") return res.status(400).json({ error: "sections is required." });
+    const versions = await readJson("template-versions.json", []);
+    const version = {
+      version: `v${versions.length + 2}`,
+      sections,
+      note: typeof note === "string" ? note.trim() : "",
+      assets: assets && typeof assets === "object" ? assets : {},
+      createdAt: new Date().toISOString(),
+    };
+    versions.push(version);
+    await writeJson("template-versions.json", versions, `Save prompt ${version.version}${version.note ? `: ${version.note}` : ""}`);
+    res.json({ versions });
+  })
+);
 
-// Images that belong to a prompt version (e.g. the character reference) are
+// Images that belong to a prompt version (e.g. the human reference) are
 // uploaded once and referenced by URL, so versions stay small.
-app.post("/api/assets", (req, res) => {
-  const url = saveImage(req.body?.image);
-  if (!url) return res.status(400).json({ error: "Image is required." });
-  res.json({ url });
-});
+app.post(
+  "/api/assets",
+  route(async (req, res) => {
+    const url = await storeImage(req.body?.image);
+    if (!url) return res.status(400).json({ error: "Image is required." });
+    res.json({ url });
+  })
+);
 
-function readSavedImage(url) {
+async function readSavedImage(url) {
   if (typeof url !== "string" || !url.startsWith("/images/")) return null;
-  const file = path.join(IMAGE_DIR, path.basename(url));
-  return fs.existsSync(file) ? { mimeType: "image/png", buffer: fs.readFileSync(file) } : null;
+  const name = path.basename(url);
+  if (!IMAGE_NAME_RE.test(name)) return null;
+  const buffer = await readImage(name);
+  return buffer ? { mimeType: "image/png", buffer } : null;
 }
 
 // --- Feedback --------------------------------------------------------------
 // 👎 entries carry categories + memo; `active` ones are folded into the
 // prompt's feedback section. 👍 entries are kept as good examples.
 
-app.get("/api/feedback", (req, res) => {
-  res.json({ feedback: readJson("feedback.json", []) });
-});
+app.get(
+  "/api/feedback",
+  route(async (req, res) => {
+    res.json({ feedback: await readJson("feedback.json", []) });
+  })
+);
 
-app.post("/api/feedback", (req, res) => {
-  const { rating, categories, memo, subject, hue, promptVersion, model, image } = req.body ?? {};
-  if (rating !== "good" && rating !== "bad") return res.status(400).json({ error: "rating must be good or bad." });
-  const list = readJson("feedback.json", []);
-  list.unshift({
-    id: newId(),
-    rating,
-    categories: Array.isArray(categories) ? categories.filter((c) => typeof c === "string") : [],
-    memo: typeof memo === "string" ? memo.trim() : "",
-    subject: typeof subject === "string" ? subject : "",
-    hue: typeof hue === "string" ? hue : "",
-    promptVersion: typeof promptVersion === "string" ? promptVersion : "",
-    model: typeof model === "string" ? model : "",
-    image: saveImage(image),
-    active: rating === "bad",
-    createdAt: new Date().toISOString(),
-  });
-  writeJson("feedback.json", list);
-  res.json({ feedback: list });
-});
+app.post(
+  "/api/feedback",
+  route(async (req, res) => {
+    const { rating, categories, memo, subject, hue, promptVersion, model, image } = req.body ?? {};
+    if (rating !== "good" && rating !== "bad") return res.status(400).json({ error: "rating must be good or bad." });
+    const entry = {
+      id: newId(),
+      rating,
+      categories: Array.isArray(categories) ? categories.filter((c) => typeof c === "string") : [],
+      memo: typeof memo === "string" ? memo.trim() : "",
+      subject: typeof subject === "string" ? subject : "",
+      hue: typeof hue === "string" ? hue : "",
+      promptVersion: typeof promptVersion === "string" ? promptVersion : "",
+      model: typeof model === "string" ? model : "",
+      image: await storeImage(image),
+      active: rating === "bad",
+      createdAt: new Date().toISOString(),
+    };
+    const list = await readJson("feedback.json", []);
+    list.unshift(entry);
+    await writeJson("feedback.json", list, `${rating === "good" ? "👍" : "👎"} ${entry.subject.slice(0, 40)}`);
+    res.json({ feedback: list });
+  })
+);
 
-app.patch("/api/feedback/:id", (req, res) => {
-  const list = readJson("feedback.json", []);
-  const entry = list.find((f) => f.id === req.params.id);
-  if (!entry) return res.status(404).json({ error: "Not found." });
-  if (typeof req.body?.active === "boolean") entry.active = req.body.active;
-  if (typeof req.body?.memo === "string") entry.memo = req.body.memo.trim();
-  writeJson("feedback.json", list);
-  res.json({ feedback: list });
-});
+app.patch(
+  "/api/feedback/:id",
+  route(async (req, res) => {
+    const list = await readJson("feedback.json", []);
+    const entry = list.find((f) => f.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Not found." });
+    if (typeof req.body?.active === "boolean") entry.active = req.body.active;
+    if (typeof req.body?.memo === "string") entry.memo = req.body.memo.trim();
+    await writeJson("feedback.json", list, `Update feedback ${entry.id}`);
+    res.json({ feedback: list });
+  })
+);
 
-app.delete("/api/feedback/:id", (req, res) => {
-  const list = readJson("feedback.json", []);
-  const entry = list.find((f) => f.id === req.params.id);
-  if (entry?.image) fs.rmSync(path.join(IMAGE_DIR, path.basename(entry.image)), { force: true });
-  const next = list.filter((f) => f.id !== req.params.id);
-  writeJson("feedback.json", next);
-  res.json({ feedback: next });
-});
+app.delete(
+  "/api/feedback/:id",
+  route(async (req, res) => {
+    const list = await readJson("feedback.json", []);
+    const entry = list.find((f) => f.id === req.params.id);
+    const next = list.filter((f) => f.id !== req.params.id);
+    await writeJson("feedback.json", next, `Delete feedback ${req.params.id}`);
+    if (entry?.image) await deleteImage(path.basename(entry.image));
+    res.json({ feedback: next });
+  })
+);
 
 app.get("/api/models", (req, res) => {
   res.json({ models: Object.entries(MODELS).map(([id, m]) => ({ id, qualities: m.qualities })), defaultModel: DEFAULT_MODEL });
@@ -208,7 +232,7 @@ app.post("/api/generate", async (req, res) => {
   try {
     let response;
     // Order matters: the prompt's [ATTACHED IMAGES] note numbers them the same way.
-    const references = [parseDataUrl(referenceImage), readSavedImage(characterReference)].filter(Boolean);
+    const references = [parseDataUrl(referenceImage), await readSavedImage(characterReference)].filter(Boolean);
 
     if (references.length) {
       // References go through the edits endpoint; the prompt's rules limit
@@ -247,4 +271,5 @@ app.post("/api/generate", async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Icon Thumbnail Generator running at http://localhost:${PORT}`);
+  console.log(`Storage: ${USING_GITHUB ? `GitHub (${process.env.GITHUB_DATA_REPO})` : "local data/ folder"}`);
 });

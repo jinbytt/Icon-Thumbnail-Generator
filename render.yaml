@@ -10,3 +10,7 @@ services:
         sync: false
       - key: SITE_PASSWORD
         sync: false
+      - key: GITHUB_DATA_REPO
+        value: jinbytt/icon-thumbnail-data
+      - key: GITHUB_TOKEN
+        sync: false
