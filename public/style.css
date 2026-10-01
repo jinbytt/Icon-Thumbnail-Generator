@@ -256,6 +256,10 @@ body {
   color: var(--bad);
 }
 
+.person-hint {
+  margin: 6px 0 0;
+}
+
 .gender-chips {
   margin-top: 6px;
 }

@@ -1,4 +1,4 @@
-import { APP_VERSION, OUTPUT, DEFAULT_SECTIONS, HUES, GENDERS, FEEDBACK_CATEGORIES, SERVICES } from "./template.js";
+import { APP_VERSION, OUTPUT, DEFAULT_SECTIONS, HUES, GENDERS, PERSON_KEYWORDS, FEEDBACK_CATEGORIES, SERVICES } from "./template.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -7,6 +7,7 @@ const subjectInputEl = $("subjectInput");
 const hueChipsEl = $("hueChips");
 const genderChipsEl = $("genderChips");
 const personChipsEl = $("personChips");
+const personHintEl = $("personHint");
 const referenceInputEl = $("referenceInput");
 const referenceThumbEl = $("referenceThumb");
 const referenceClearEl = $("referenceClear");
@@ -50,6 +51,8 @@ const state = {
   hueMode: "random",
   hueCursor: Math.floor(Math.random() * HUES.length),
   personMode: "none", // none | auto
+  personSuggested: "none", // what the SUBJECT keywords suggest; a manual pick lasts until this changes
+  personKeyword: null,
   genderMode: "random",
   genderCursor: Math.floor(Math.random() * GENDERS.length),
   referenceImage: null,
@@ -235,9 +238,13 @@ function renderServices() {
     const s = SERVICES[Number(serviceSelectEl.value)];
     if (serviceSelectEl.value !== "" && s) subjectInputEl.value = `${s.name} — ${s.desc}`;
     serviceSelectEl.value = "";
+    suggestPersonMode();
     updatePreview();
   });
-  subjectInputEl.addEventListener("input", updatePreview);
+  subjectInputEl.addEventListener("input", () => {
+    suggestPersonMode();
+    updatePreview();
+  });
 }
 
 function renderHues() {
@@ -256,7 +263,23 @@ function renderHues() {
   });
 }
 
+// Re-evaluated on every SUBJECT edit, but only overrides the chips when the
+// suggestion itself flips — so a manual pick isn't undone while typing.
+function suggestPersonMode() {
+  const subject = subjectInputEl.value.toLowerCase();
+  const keyword = PERSON_KEYWORDS.find((k) => subject.includes(k.toLowerCase())) ?? null;
+  const suggested = keyword ? "auto" : "none";
+  state.personKeyword = keyword;
+  if (suggested !== state.personSuggested) {
+    state.personSuggested = suggested;
+    state.personMode = suggested;
+  }
+  renderGenders();
+}
+
 function renderGenders() {
+  personHintEl.hidden = !(state.personKeyword && state.personMode === "auto");
+  personHintEl.textContent = `SUBJECT에 "${state.personKeyword}"이(가) 있어서 자동으로 '꼭 필요할 때만'으로 바꿨어요.`;
   personChipsEl.innerHTML = "";
   PERSON_MODES.forEach((m) => {
     const chip = el("button", { type: "button", className: `chip${state.personMode === m.id ? " selected" : ""}`, textContent: m.label });

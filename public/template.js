@@ -72,6 +72,10 @@ Use the human reference for illustration style only. Do not copy its text, layou
   },
 ];
 
+// SUBJECTs containing any of these switch 인물 to "꼭 필요할 때만" automatically
+// (people stay off by default because the model adds them far too often).
+export const PERSON_KEYWORDS = ["얼굴", "페이스", "face", "사진", "포토", "photo", "셀카", "셀피", "selfie", "피부", "인물", "관상"];
+
 // Person gender, picked by the site (like the hue) because the model left to
 // itself almost always draws a woman. Alternated in "random" mode.
 export const GENDERS = [
