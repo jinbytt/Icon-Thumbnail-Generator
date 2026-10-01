@@ -1,10 +1,11 @@
-import { APP_VERSION, OUTPUT, DEFAULT_SECTIONS, HUES, FEEDBACK_CATEGORIES, SERVICES } from "./template.js";
+import { APP_VERSION, OUTPUT, DEFAULT_SECTIONS, HUES, GENDERS, FEEDBACK_CATEGORIES, SERVICES } from "./template.js";
 
 const $ = (id) => document.getElementById(id);
 
 const serviceSelectEl = $("serviceSelect");
 const subjectInputEl = $("subjectInput");
 const hueChipsEl = $("hueChips");
+const genderChipsEl = $("genderChips");
 const referenceInputEl = $("referenceInput");
 const referenceThumbEl = $("referenceThumb");
 const referenceClearEl = $("referenceClear");
@@ -47,6 +48,8 @@ const state = {
   dirty: false, // editors changed since load/save
   hueMode: "random",
   hueCursor: Math.floor(Math.random() * HUES.length),
+  genderMode: "random",
+  genderCursor: Math.floor(Math.random() * GENDERS.length),
   referenceImage: null,
   models: [],
   results: [],
@@ -152,10 +155,17 @@ const VARIATION_MODES = [
   },
 ];
 
-function buildPrompt(subject, hue, variation = null) {
-  const blocks = state.sections.map(
-    (s) => `[${s.label}]\n${s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue)}`
-  );
+function genderLine(gender) {
+  const g = GENDERS.find((x) => x.id === gender) ?? GENDERS[0];
+  return `If a person appears, depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
+}
+
+function buildPrompt(subject, hue, variation = null, gender = previewGender()) {
+  const blocks = state.sections.map((s) => {
+    const text = s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue);
+    return `[${s.label}]\n${text}${s.id === "character" ? `\n${genderLine(gender)}` : ""}`;
+  });
+  if (!state.sections.some((s) => s.id === "character")) blocks.push(`[PERSON — IF NEEDED]\n${genderLine(gender)}`);
   if (variation) {
     const mode = VARIATION_MODES.find((m) => m.id === variation.mode) ?? VARIATION_MODES[0];
     const extra = variation.memo ? `\nChange requested: ${variation.memo}` : "";
@@ -168,6 +178,17 @@ function buildPrompt(subject, hue, variation = null) {
     blocks.push(`[FEEDBACK — FIX THESE ISSUES SEEN IN PREVIOUS RESULTS]\n${lines.join("\n")}`);
   }
   return blocks.join("\n");
+}
+
+function previewGender() {
+  return state.genderMode === "random" ? GENDERS[state.genderCursor].id : state.genderMode;
+}
+
+function nextGender() {
+  if (state.genderMode !== "random") return state.genderMode;
+  const gender = GENDERS[state.genderCursor].id;
+  state.genderCursor = (state.genderCursor + 1) % GENDERS.length;
+  return gender;
 }
 
 function previewHue() {
@@ -215,6 +236,19 @@ function renderHues() {
       updatePreview();
     });
     hueChipsEl.appendChild(chip);
+  });
+}
+
+function renderGenders() {
+  genderChipsEl.innerHTML = "";
+  [{ id: "random", label: "🎲 번갈아" }, ...GENDERS].forEach((g) => {
+    const chip = el("button", { type: "button", className: `chip${state.genderMode === g.id ? " selected" : ""}`, textContent: g.label });
+    chip.addEventListener("click", () => {
+      state.genderMode = g.id;
+      renderGenders();
+      updatePreview();
+    });
+    genderChipsEl.appendChild(chip);
   });
 }
 
@@ -553,7 +587,8 @@ async function generate() {
   await runBatch(
     Array.from({ length: count }, () => {
       const hue = nextHue();
-      return { subject, hue, promptVersion, prompt: buildPrompt(subject, hue) };
+      const gender = nextGender();
+      return { subject, hue, gender, promptVersion, prompt: buildPrompt(subject, hue, null, gender) };
     })
   );
 }
@@ -572,8 +607,9 @@ async function generateVariations(source, mode, memo, count) {
       return {
         subject: source.subject,
         hue,
+        gender: source.gender,
         promptVersion: `${currentVersionLabel()} · ${modeLabel}`,
-        prompt: buildPrompt(source.subject, hue, variation),
+        prompt: buildPrompt(source.subject, hue, variation, source.gender),
         sourceImage: source.full,
         parentId: source.id,
       };
@@ -888,6 +924,7 @@ async function init() {
   $("appVersion").textContent = APP_VERSION;
   renderServices();
   renderHues();
+  renderGenders();
   setupReference();
   renderEditors();
   renderResults();

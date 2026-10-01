@@ -72,6 +72,13 @@ Use the human reference for illustration style only. Do not copy its text, layou
   },
 ];
 
+// Person gender, picked by the site (like the hue) because the model left to
+// itself almost always draws a woman. Alternated in "random" mode.
+export const GENDERS = [
+  { id: "man", label: "👨 남성", en: "a man (male)" },
+  { id: "woman", label: "👩 여성", en: "a woman (female)" },
+];
+
 // Rotated so consecutive images don't land on the same hue.
 export const HUES = [
   { id: "sky blue", label: "스카이블루", swatch: "#DCEBFA" },
