@@ -99,6 +99,36 @@ function hueLabel(id) {
   return HUES.find((h) => h.id === id)?.label ?? id;
 }
 
+// confirm()/prompt() are auto-dismissed in some embedded browsers (e.g. the
+// Claude app's browser pane), so destructive actions use a second click on
+// the same button instead: the first click arms it for a few seconds.
+function confirmByClick(btn, armedText, action) {
+  if (btn.dataset.armed === "1") {
+    clearTimeout(Number(btn.dataset.timer));
+    btn.dataset.armed = "";
+    btn.textContent = btn.dataset.label;
+    return action();
+  }
+  btn.dataset.label = btn.textContent;
+  btn.dataset.armed = "1";
+  btn.textContent = armedText;
+  btn.dataset.timer = String(
+    setTimeout(() => {
+      btn.dataset.armed = "";
+      btn.textContent = btn.dataset.label;
+    }, 3000)
+  );
+}
+
+// Same idea for "you have unsaved edits": warn once, go ahead on the next try.
+let unsavedWarnedAt = 0;
+function okToDiscardEdits() {
+  if (!state.dirty || Date.now() - unsavedWarnedAt < 5000) return true;
+  unsavedWarnedAt = Date.now();
+  showError("저장 안 한 프롬프트 수정이 있어요. 그래도 넘어가려면 한 번 더 눌러주세요. (저장하려면 '새 버전으로 저장')");
+  return false;
+}
+
 function currentType() {
   return state.types.find((t) => t.id === state.typeId) ?? state.types[0];
 }
@@ -471,7 +501,8 @@ function renderTypeTabs() {
 
 async function switchType(id, { force = false } = {}) {
   if (!force && id === state.typeId) return;
-  if (!force && state.dirty && !confirm("저장 안 한 프롬프트 수정이 있어요. 탭을 바꾸면 사라져요. 계속할까요?")) return;
+  if (!force && !okToDiscardEdits()) return;
+  showError(null);
   state.typeId = id;
   state.boardTab = "bad";
   state.categoryFilter = null;
@@ -553,7 +584,10 @@ async function createType() {
   };
   if (!name) return fail("탭 이름을 입력해주세요.");
   if (!sections.length) return fail("프롬프트를 붙여넣어주세요. [대괄호 제목] 기준으로 섹션이 나뉘어요.");
-  if (state.dirty && !confirm("지금 탭에 저장 안 한 수정이 있어요. 새 탭으로 넘어가면 사라져요. 계속할까요?")) return;
+  if (state.dirty && Date.now() - unsavedWarnedAt > 5000) {
+    unsavedWarnedAt = Date.now();
+    return fail("지금 탭에 저장 안 한 수정이 있어요. 새 탭으로 넘어가면 사라져요. 괜찮으면 '만들기'를 한 번 더 눌러주세요.");
+  }
 
   typeCreateBtn.disabled = true;
   try {
@@ -569,9 +603,35 @@ async function createType() {
   }
 }
 
-async function renameType() {
-  const name = prompt("새 탭 이름", currentType().name)?.trim();
-  if (!name) return;
+// Inline rename field (prompt() isn't reliable in embedded browsers).
+function renameType() {
+  const btn = $("renameTypeBtn");
+  if (typeManageEl.querySelector("input")) return;
+  const input = el("input", { className: "input small", value: currentType().name, maxLength: 30 });
+  const save = el("button", { type: "button", className: "ghost-btn", textContent: "저장" });
+  const done = () => {
+    input.remove();
+    save.remove();
+    btn.hidden = false;
+  };
+  save.addEventListener("click", async () => {
+    await submitRename(input.value.trim());
+    done();
+  });
+  input.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
+      await submitRename(input.value.trim());
+      done();
+    } else if (e.key === "Escape") done();
+  });
+  btn.hidden = true;
+  typeManageEl.prepend(input, save);
+  input.focus();
+  input.select();
+}
+
+async function submitRename(name) {
+  if (!name || name === currentType().name) return;
   try {
     const data = await api(`/api/types/${state.typeId}`, { method: "PATCH", body: JSON.stringify({ name }) });
     state.types = data.types;
@@ -582,8 +642,12 @@ async function renameType() {
   }
 }
 
-async function deleteType() {
-  if (!confirm(`"${currentType().name}" 탭을 삭제할까요? (저장된 프롬프트·피드백 기록은 저장소에 남아요)`)) return;
+function deleteType() {
+  confirmByClick($("deleteTypeBtn"), "한 번 더 누르면 탭 삭제", removeType);
+}
+
+// Saved prompt versions and feedback stay in storage; only the tab goes away.
+async function removeType() {
   try {
     const data = await api(`/api/types/${state.typeId}`, { method: "DELETE" });
     state.types = data.types;
@@ -883,7 +947,6 @@ async function patchFeedback(id, patch) {
 }
 
 async function deleteFeedback(id) {
-  if (!confirm("이 피드백을 삭제할까요?")) return;
   const data = await api(`/api/feedback/${encodeURIComponent(id)}`, { method: "DELETE" });
   state.feedback = data.feedback;
   renderBoard();
@@ -960,7 +1023,17 @@ function renderBoard() {
     }
     foot.append(el("span", { textContent: [f.promptVersion, f.model?.replace("gpt-image-", ""), hueLabel(f.hue)].filter(Boolean).join(" · ") }));
     const del = el("button", { type: "button", className: "link-btn", textContent: "삭제" });
-    del.addEventListener("click", () => deleteFeedback(f.id).catch((e) => showError(e.message)));
+    del.addEventListener("click", () =>
+      confirmByClick(del, "한 번 더 누르면 삭제", () => {
+        del.disabled = true;
+        del.textContent = "삭제 중...";
+        return deleteFeedback(f.id).catch((e) => {
+          del.disabled = false;
+          del.textContent = "삭제";
+          showError(e.message);
+        });
+      })
+    );
     foot.append(del);
     body.append(foot);
 

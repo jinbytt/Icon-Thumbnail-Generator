@@ -23,6 +23,7 @@ const MODELS = {
 const DEFAULT_MODEL = MODELS[process.env.IMAGE_MODEL] ? process.env.IMAGE_MODEL : "gpt-image-2.5-sunburst";
 
 const app = express();
+app.set("trust proxy", 1); // behind Render's proxy — lets the login rate limit see real client IPs
 app.use(express.json({ limit: "25mb" }));
 app.use(cookieParser());
 
