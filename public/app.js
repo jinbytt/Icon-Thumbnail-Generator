@@ -195,7 +195,7 @@ const VARIATION_MODES = [
 // objects.
 const PERSON_MODES = [
   { id: "none", label: "🙅 사람 없이" },
-  { id: "auto", label: "🤖 꼭 필요할 때만" },
+  { id: "auto", label: "🧑 사람 포함" },
 ];
 
 const NO_PEOPLE_BLOCK = `[NO PEOPLE — PRIORITY]
@@ -204,7 +204,9 @@ Do not depict any people, faces, heads, hands, silhouettes or human figures. Com
 function personLines(gender) {
   const g = GENDERS.find((x) => x.id === gender) ?? GENDERS[0];
   const who = `depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
-  return `Default to NO people. Add a person only if SUBJECT cannot be understood from objects or symbols alone (for example a service whose core is a face or a photo of someone). Only in that case, ${who}`;
+  // Only reached when the user turned people on (or a face/photo keyword did),
+  // so this asks for a person rather than merely allowing one.
+  return `People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. ${who[0].toUpperCase()}${who.slice(1)}`;
 }
 
 function buildPrompt(subject, hue, variation = null, gender = previewGender()) {
@@ -319,7 +321,7 @@ function suggestPersonMode() {
 
 function renderGenders() {
   personHintEl.hidden = !(state.personKeyword && state.personMode === "auto");
-  personHintEl.textContent = `SUBJECT에 "${state.personKeyword}"이(가) 있어서 자동으로 '꼭 필요할 때만'으로 바꿨어요.`;
+  personHintEl.textContent = `SUBJECT에 "${state.personKeyword}"이(가) 있어서 자동으로 '사람 포함'으로 바꿨어요.`;
   personChipsEl.innerHTML = "";
   PERSON_MODES.forEach((m) => {
     const chip = el("button", { type: "button", className: `chip${state.personMode === m.id ? " selected" : ""}`, textContent: m.label });
