@@ -765,12 +765,22 @@ async function generateVariations(source, mode, memo, count) {
 const SYMBOL_SIZE = 120;
 
 const SYMBOL_PROMPT = `[SYMBOL — FROM THUMBNAIL]
-The attached image is a finished thumbnail. Create a square symbol version of it.
-Keep only the MAIN object exactly as designed in the thumbnail: the same shape, proportions, colors, materials, surface grain, lighting and viewing angle.
+The attached image is a finished thumbnail. Turn its MAIN object into a simple square symbol that reads instantly at ${SYMBOL_SIZE}×${SYMBOL_SIZE} pixels, like an app icon.
+
+[KEEP]
+It must still be recognizably the same object from the thumbnail, in the same 3D satin style, color family and lighting direction.
+
+[SIMPLIFY — PRIORITY]
+Reduce the object to its most essential, instantly recognizable silhouette.
+Use only a few large, bold shapes. Merge or remove small parts, thin lines, tiny buttons, decorations, patterns, text and fine surface details.
+Thicken thin parts and enlarge the one feature that identifies the object most.
+Limit the palette to two or three main colors with strong contrast between the object's parts.
+Use a clear, mostly front-facing or gently angled view; avoid steep perspective that shrinks the shape.
 Remove all supporting elements, people, background shapes and the ground shadow.
-Center the main object and scale it to fill about 80% of the square, with even margins on all sides.
-Fully transparent background: no backdrop color, no floor, no cast shadow, no border.
-Keep it readable at ${SYMBOL_SIZE}×${SYMBOL_SIZE} pixels with a clear silhouette and no tiny details or text.`;
+
+[FRAME]
+Center the object and scale it large, filling about 85% of the square with even margins on all sides.
+Fully transparent background: no backdrop color, no floor, no cast shadow, no glow, no border.`;
 
 // Reads the thumbnail's solid pastel background from its corners.
 async function sampleBackground(dataUrl) {
