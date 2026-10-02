@@ -211,7 +211,8 @@ function personLines(gender) {
 
 function buildPrompt(subject, hue, variation = null, gender = previewGender()) {
   const blocks = state.sections
-    .filter((s) => !(state.personMode === "none" && s.id === "character"))
+    // People-only sections ("character" and any "character-*" add-on like facial rules) go away with 사람 없이.
+    .filter((s) => !(state.personMode === "none" && (s.id === "character" || s.id.startsWith("character-"))))
     .map((s) => {
       const text = s.text.replaceAll("{{SUBJECT}}", subject || "(SUBJECT)").replaceAll("{{BACKGROUND_HUE}}", hue);
       return `[${s.label}]\n${text}${s.id === "character" ? `\n${personLines(gender)}` : ""}`;
