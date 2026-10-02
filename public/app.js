@@ -218,7 +218,9 @@ function buildPrompt(subject, hue, variation = null, gender = previewGender()) {
   else if (!state.sections.some((s) => s.id === "character")) blocks.push(`[PERSON]\n${personLines(gender)}`);
   if (variation) {
     const mode = VARIATION_MODES.find((m) => m.id === variation.mode) ?? VARIATION_MODES[0];
-    const extra = variation.memo ? `\nChange requested: ${variation.memo}` : "";
+    let extra = variation.memo ? `\nChange requested: ${variation.memo}` : "";
+    // 🎨 on a tab without a hue slot: there's no "background hue specified below" to point at.
+    if (mode.id === "color" && !hue) extra = `\nPick a clearly different color palette from the previous result, following the color rules below.${extra}`;
     blocks.unshift(`[VARIATION — HIGHEST PRIORITY]\nThe first attached image is a previous result the user liked. ${mode.text}${extra}`);
   }
   const note = attachmentsNote(variation);
@@ -245,7 +247,14 @@ function previewHue() {
   return state.hueMode === "random" ? HUES[state.hueCursor].id : state.hueMode;
 }
 
+// Tabs whose prompt picks its own background (no {{BACKGROUND_HUE}} slot)
+// hide the hue chips and don't record a hue on results.
+function usesHue() {
+  return state.sections.some((s) => s.text.includes("{{BACKGROUND_HUE}}"));
+}
+
 function nextHue() {
+  if (!usesHue()) return null;
   if (state.hueMode !== "random") return state.hueMode;
   const hue = HUES[state.hueCursor].id;
   state.hueCursor = (state.hueCursor + 1) % HUES.length;
@@ -253,6 +262,7 @@ function nextHue() {
 }
 
 function updatePreview() {
+  hueChipsEl.closest(".field").hidden = !usesHue();
   promptPreviewEl.value = buildPrompt(subjectInputEl.value.trim(), previewHue());
   promptVersionEl.textContent = currentVersionLabel();
   typeNameEl.textContent = currentType().name;
@@ -774,7 +784,7 @@ async function runBatch(items) {
 }
 
 function download(r) {
-  const a = el("a", { href: r.output, download: `${r.subject.split("—")[0].trim()}-${r.hue}-${OUTPUT.width}x${OUTPUT.height}.png` });
+  const a = el("a", { href: r.output, download: `${[r.subject.split("—")[0].trim(), r.hue].filter(Boolean).join("-")}-${OUTPUT.width}x${OUTPUT.height}.png` });
   a.click();
 }
 
@@ -907,8 +917,8 @@ function renderResults() {
     const swatch = HUES.find((h) => h.id === r.hue)?.swatch;
     body.append(
       el("div", { className: "card-meta" }, [
-        el("span", { className: "swatch", style: `background:${swatch}` }),
-        `${hueLabel(r.hue)} · ${r.promptVersion} · ${r.model.replace("gpt-image-", "")} · ${r.subject.split("—")[0].trim()}`,
+        ...(swatch ? [el("span", { className: "swatch", style: `background:${swatch}` })] : []),
+        [r.hue && hueLabel(r.hue), r.promptVersion, r.model.replace("gpt-image-", ""), r.subject.split("—")[0].trim()].filter(Boolean).join(" · "),
       ])
     );
 
@@ -1021,7 +1031,7 @@ function renderBoard() {
       toggle.addEventListener("change", () => patchFeedback(f.id, { active: toggle.checked }).catch((e) => showError(e.message)));
       foot.append(el("label", { title: f.memo ? "" : "메모가 있어야 프롬프트에 들어가요" }, [toggle, "반영"]));
     }
-    foot.append(el("span", { textContent: [f.promptVersion, f.model?.replace("gpt-image-", ""), hueLabel(f.hue)].filter(Boolean).join(" · ") }));
+    foot.append(el("span", { textContent: [f.promptVersion, f.model?.replace("gpt-image-", ""), f.hue && hueLabel(f.hue)].filter(Boolean).join(" · ") }));
     const del = el("button", { type: "button", className: "link-btn", textContent: "삭제" });
     del.addEventListener("click", () =>
       confirmByClick(del, "한 번 더 누르면 삭제", () => {
