@@ -1,0 +1,17 @@
+[SYMBOL — FROM THUMBNAIL]
+The attached image is a finished thumbnail. Turn its MAIN object into a simple square symbol that reads instantly at 120×120 pixels, like an app icon.
+
+[KEEP]
+It must still be recognizably the same object from the thumbnail, in the same 3D satin style, color family and lighting direction.
+
+[SIMPLIFY — PRIORITY]
+Reduce the object to its most essential, instantly recognizable silhouette.
+Use only a few large, bold shapes. Merge or remove small parts, thin lines, tiny buttons, decorations, patterns, text and fine surface details.
+Thicken thin parts and enlarge the one feature that identifies the object most.
+Limit the palette to two or three main colors with strong contrast between the object's parts.
+Use a clear, mostly front-facing or gently angled view; avoid steep perspective that shrinks the shape.
+Remove all supporting elements, people, background shapes and the ground shadow.
+
+[FRAME]
+Center the object and scale it large, filling about 85% of the square with even margins on all sides.
+Fully transparent background: no backdrop color, no floor, no cast shadow, no glow, no border.

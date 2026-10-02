@@ -1,0 +1,134 @@
+{
+  "name": "새틴 파스텔",
+  "version": "v8",
+  "exportedFrom": "jinbytt/icon-thumbnail-data template-versions.json (production)",
+  "model": "gpt-image-2.5-sunburst",
+  "quality": "auto",
+  "thumbnail": {
+    "generateSize": "1296x800",
+    "outputWidth": 502,
+    "outputHeight": 310
+  },
+  "symbol": {
+    "generateSize": "1024x1024",
+    "background": "transparent",
+    "outputSize": 120
+  },
+  "placeholders": {
+    "{{SUBJECT}}": "service name + description",
+    "{{BACKGROUND_HUE}}": "one of backgroundHues[].id"
+  },
+  "backgroundHues": [
+    {
+      "id": "sky blue",
+      "hex": "#DCEBFA"
+    },
+    {
+      "id": "mint",
+      "hex": "#DDF3EA"
+    },
+    {
+      "id": "lavender",
+      "hex": "#E8E3F7"
+    },
+    {
+      "id": "blush pink",
+      "hex": "#F8E3E8"
+    },
+    {
+      "id": "peach",
+      "hex": "#FBE7DA"
+    },
+    {
+      "id": "butter yellow",
+      "hex": "#FAF2D6"
+    },
+    {
+      "id": "pale aqua",
+      "hex": "#DDF2F4"
+    }
+  ],
+  "people": {
+    "keywords": [
+      "얼굴",
+      "페이스",
+      "face",
+      "사진",
+      "포토",
+      "photo",
+      "셀카",
+      "셀피",
+      "selfie",
+      "피부",
+      "인물",
+      "관상"
+    ],
+    "peopleSectionIds": [
+      "character",
+      "character-face"
+    ],
+    "noPeopleBlock": "[NO PEOPLE — PRIORITY]\nDo not depict any people, faces, heads, hands, silhouettes or human figures. Communicate SUBJECT with objects, devices and symbols only.",
+    "includeLine": "People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. Depict {{GENDER}}; for several people, make {{GENDER}} the main person. Use the human reference only for drawing style, never for gender, age or appearance.",
+    "genders": [
+      "a man (male)",
+      "a woman (female)"
+    ]
+  },
+  "sections": [
+    {
+      "id": "subject",
+      "label": "SUBJECT",
+      "text": "{{SUBJECT}}"
+    },
+    {
+      "id": "concept",
+      "label": "CONCEPT → ICON",
+      "text": "Interpret SUBJECT as a concept, function or service. Identify its core meaning and select a familiar visual symbol that communicates it immediately.\nChoose an associated object, action or metaphor rather than automatically reproducing the complete physical equipment. Use one main symbol and, only when necessary, one supporting element. Combine them into a single cohesive icon. Choose one interpretation and output one image."
+    },
+    {
+      "id": "form",
+      "label": "ICON FORM",
+      "text": "Create a compact stylized 3D UI icon that remains recognizable at small size. Use a few bold shapes, clean curved surfaces, precise silhouettes and softly rounded edges without inflating the forms. Retain essential identifying features while simplifying repetitive parts and tiny details."
+    },
+    {
+      "id": "style",
+      "label": "STYLE & TEXTURE",
+      "text": "Polished graphic 3D rendering with satin surfaces, broad soft highlights and subtle edge reflections. Visible but delicate fine surface grain, a lightly powder-coated finish and subtle micro-roughness. Fine monochromatic speckling should be especially noticeable in midtones and shadows. Preserve clean edges and smooth overall forms.\nUse the coordinated orange-led palette described in [COLOR VARIATION]. Allow smooth color transitions across the object's surfaces, supported by controlled shading, clear dimensional depth and gently colored shadows.\nKeep the main symbol opaque, with a satin finish and a clear, solid silhouette.\nOnly when a supporting object is needed, it may use softly frosted transparent glass or a translucent satin material. Keep this treatment limited to the supporting object, visually secondary in size, placement and contrast. Do not add a supporting object solely to introduce transparency.\nSupporting glass or translucent materials may carry gentle yellow, amber or orange tints that harmonize with the overall palette. Keep transparency, reflections and refraction restrained, with broad soft highlights and delicate surface roughness. Avoid mirror-like reflections, sparkling effects or visually dominant glass surfaces. Apply grain subtly so the material remains clean and translucent."
+    },
+    {
+      "id": "background",
+      "label": "BACKGROUND",
+      "text": "Opaque, uniform solid pastel background filling the entire canvas edge to edge. Use the very pale background hue specified in [COLOR VARIATION], with clear separation between the background and the icon. Keep the background softly but visibly colored. Soft localized shadows beneath the icon. No gradient, white background, transparency, horizon line or visible floor transition."
+    },
+    {
+      "id": "color",
+      "label": "COLOR VARIATION — PRIORITY",
+      "text": "Use a very pale {{BACKGROUND_HUE}} as the solid pastel background hue.\nUse the object's natural, recognizable material colors as the foundation, such as wood tones, kraft-paper brown or metal gray, chosen from SUBJECT rather than a fixed palette. Natural material colors take priority over off-white; use off-white only for appropriate neutral components.\nAdd warm orange and fresh bright green as subtle brand accents on small meaningful parts, trim or supporting elements. Both should appear, but they must not dominate or replace the natural colors. Do not recolor a whole object orange or green.\nAdjust all colors to harmonize with the selected background, keeping clear separation through differences in lightness and saturation.\nThis color variation instruction takes priority over any fixed colors in the reference image. Preserve all existing shape, texture, lighting and composition instructions.\nKeep the background very pale, high in lightness and low in saturation, as if the selected pastel hue is mixed with plenty of white. The color should be softly visible without becoming vivid, intense or visually dominant. Avoid medium-tone or saturated backgrounds. Keep the objects richer in color than the background so the icon remains the main focus."
+    },
+    {
+      "id": "size",
+      "label": "SIZE & COMPOSITION",
+      "text": "One landscape image, 502 pixels wide × 310 pixels high, aspect ratio 251:155. Center the complete icon with balanced, generous margins. Keep all elements fully visible. No border or collage."
+    },
+    {
+      "id": "character",
+      "label": "PEOPLE & CHARACTERS — PRIORITY",
+      "text": "When a person is needed to communicate SUBJECT, depict them as a simple flat 2D illustration character. This instruction overrides the 3D form, lighting and texture requirements for human figures only. Objects and supporting symbols should retain the specified 3D style.\n\nBuild the character from clean, solid color shapes with smooth curves, simplified proportions and a clear silhouette. Use minimal facial features, such as small dot or oval eyes. Simplify hair into a few solid shapes and hands into clear gesture shapes without detailed fingers. Communicate the intended action or emotion through an easy-to-read pose.\n\nKeep the character flat: no sculpted volume, extrusion, realistic anatomy, skin texture, glossy highlights or 3D shading. Avoid inflated toy-like bodies, oversized heads and detailed clothing. Use flat color fills without gradients or heavy outlines.\n\nCoordinate the character's colors with the overall palette, using orange and green as restrained accents on appropriate clothing or accessories. Do not copy the reference image's colors, text, background or composition.\n\nInclude a person only when their presence makes the concept clearer. Keep the composition compact and cohesive, using one main symbol and only one supporting element when necessary."
+    },
+    {
+      "id": "character-face",
+      "label": "FACIAL FEATURES — PRIORITY",
+      "text": "Keep facial features extremely minimal, even when the character is large enough to show more detail. Use only two tiny solid dots or short ovals for the eyes and, only when needed, one small simple mark for the mouth.\n\nOmit the nose, eyebrows, eyelashes, pupils, irises, eye whites, teeth, lip contours, cheek blush and facial contour lines. Do not add facial detail to convey personality or emotion; rely primarily on the pose, gesture and head tilt.\n\nKeep all facial marks flat, small and visually secondary. Avoid expressive cartoon eyes, detailed smiles or realistic facial proportions. This instruction overrides any other request for facial expression or detail."
+    },
+    {
+      "id": "avoid",
+      "label": "AVOID",
+      "text": "Detailed equipment replicas, realistic product photography, complex scenes, unnecessary decorations, tiny hardware, text, leather grain, fabric weave, coarse bumps, heavy grunge, exaggerated thickness, heavy brown shadows, glow or bloom."
+    },
+    {
+      "id": "reference",
+      "label": "REFERENCE RULE",
+      "text": "If a style reference is attached, use it only for shape language, material finish, lighting and color treatment. Derive the icon's subject and symbols from SUBJECT. Follow the background and size instructions independently of the reference."
+    }
+  ]
+}

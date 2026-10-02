@@ -10,6 +10,8 @@ cp .env.example .env   # OPENAI_API_KEY 입력
 npm start              # http://localhost:3001
 ```
 
+> 실제 서비스에 붙이는 방법(썸네일 + 심볼 자동 생성)은 **[HANDOFF.md](HANDOFF.md)** 를 보세요.
+
 ## 구조
 
 - `public/template.js` — 기본 프롬프트(v1) 섹션, 배경 파스텔 컬러, 피드백 항목, 서비스 목록
