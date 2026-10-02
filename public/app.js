@@ -502,6 +502,8 @@ function withBase(versions) {
 // Tabs that can be opened right now. The others still exist (prompts and
 // feedback are kept) but show as disabled; add an id here to re-enable one.
 const ACTIVE_TYPE_IDS = ["icon"];
+// "+ 새 타입" is hidden so visitors can't add tabs; set true to bring it back.
+const ALLOW_NEW_TYPES = false;
 
 function renderTypeTabs() {
   typeTabsEl.innerHTML = "";
@@ -516,9 +518,11 @@ function renderTypeTabs() {
     tab.addEventListener("click", () => switchType(t.id));
     typeTabsEl.appendChild(tab);
   });
-  const add = el("button", { type: "button", className: "type-tab add", textContent: "+ 새 타입" });
-  add.addEventListener("click", openTypeDialog);
-  typeTabsEl.appendChild(add);
+  if (ALLOW_NEW_TYPES) {
+    const add = el("button", { type: "button", className: "type-tab add", textContent: "+ 새 타입" });
+    add.addEventListener("click", openTypeDialog);
+    typeTabsEl.appendChild(add);
+  }
   $("deleteTypeBtn").hidden = !!currentType().builtIn; // built-in tabs can be renamed, not deleted
 }
 
