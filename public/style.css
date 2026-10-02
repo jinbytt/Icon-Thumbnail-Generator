@@ -497,6 +497,30 @@ body {
   color: var(--bad);
 }
 
+.symbol-previews {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 12px 0;
+}
+
+.symbol-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+/* checkerboard so transparency is visible */
+.symbol-preview.checker {
+  background: repeating-conic-gradient(#e6e6ea 0% 25%, #ffffff 0% 50%) 50% / 16px 16px;
+}
+
+.symbol-copy {
+  margin-top: 6px;
+}
+
 .vary-btn {
   width: 100%;
   margin-top: 6px;

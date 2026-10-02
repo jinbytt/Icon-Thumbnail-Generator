@@ -315,14 +315,17 @@ app.get("/api/models", (req, res) => {
 // --- Image generation --------------------------------------------------------
 
 app.post("/api/generate", async (req, res) => {
-  const { prompt, sourceImage, referenceImage, characterReference, quality, model: requestedModel } = req.body ?? {};
+  const { prompt, sourceImage, referenceImage, characterReference, quality, model: requestedModel, shape, background } = req.body ?? {};
   if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "Prompt is required." });
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "Server is missing OPENAI_API_KEY. Add it to .env and restart the server." });
 
   const model = MODELS[requestedModel] ? requestedModel : DEFAULT_MODEL;
-  const { size, qualities } = MODELS[model];
+  const { qualities } = MODELS[model];
+  // ⬜ 심볼 asks for a square, transparent PNG instead of the 251:155 thumbnail.
+  const size = shape === "square" ? "1024x1024" : MODELS[model].size;
+  const bg = background === "transparent" ? "transparent" : null;
   const q = qualities.includes(quality) ? quality : "auto";
 
   // Order matters: the prompt's [ATTACHED IMAGES] note numbers them the same way.
@@ -340,6 +343,7 @@ app.post("/api/generate", async (req, res) => {
       form.append("prompt", prompt);
       form.append("size", size);
       form.append("quality", q);
+      if (bg) form.append("background", bg);
       references.forEach((r, i) => form.append("image[]", new Blob([r.buffer], { type: r.mimeType }), `reference-${i + 1}.png`));
       response = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST",
@@ -350,7 +354,7 @@ app.post("/api/generate", async (req, res) => {
       response = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt, size, quality: q, n: 1 }),
+        body: JSON.stringify({ model, prompt, size, quality: q, n: 1, ...(bg ? { background: bg } : {}) }),
       });
     }
     return { response, data: await response.json() };

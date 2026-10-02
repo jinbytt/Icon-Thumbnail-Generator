@@ -759,6 +759,67 @@ async function generateVariations(source, mode, memo, count) {
   );
 }
 
+// ⬜ 심볼: the thumbnail's main object alone, square, on a transparent
+// background. The colored version is composited locally from the same PNG
+// (thumbnail background color filled behind it), so both match exactly.
+const SYMBOL_SIZE = 120;
+
+const SYMBOL_PROMPT = `[SYMBOL — FROM THUMBNAIL]
+The attached image is a finished thumbnail. Create a square symbol version of it.
+Keep only the MAIN object exactly as designed in the thumbnail: the same shape, proportions, colors, materials, surface grain, lighting and viewing angle.
+Remove all supporting elements, people, background shapes and the ground shadow.
+Center the main object and scale it to fill about 80% of the square, with even margins on all sides.
+Fully transparent background: no backdrop color, no floor, no cast shadow, no border.
+Keep it readable at ${SYMBOL_SIZE}×${SYMBOL_SIZE} pixels with a clear silhouette and no tiny details or text.`;
+
+// Reads the thumbnail's solid pastel background from its corners.
+async function sampleBackground(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const canvas = el("canvas", { width: img.naturalWidth, height: img.naturalHeight });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const pts = [[4, 4], [canvas.width - 5, 4], [4, canvas.height - 5], [canvas.width - 5, canvas.height - 5]];
+  const sum = [0, 0, 0];
+  pts.forEach(([x, y]) => ctx.getImageData(x, y, 1, 1).data.slice(0, 3).forEach((v, i) => (sum[i] += v)));
+  const [r, g, b] = sum.map((v) => Math.round(v / pts.length));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+async function squareOutputs(dataUrl, bgColor) {
+  const img = await loadImage(dataUrl);
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - side) / 2;
+  const sy = (img.naturalHeight - side) / 2;
+  const draw = (px, fill) => {
+    const canvas = el("canvas", { width: px, height: px });
+    const ctx = canvas.getContext("2d");
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, px, px);
+    }
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, px, px);
+    return canvas.toDataURL("image/png");
+  };
+  return { full: draw(side), output: draw(SYMBOL_SIZE), fullBg: draw(side, bgColor), outputBg: draw(SYMBOL_SIZE, bgColor) };
+}
+
+async function generateSymbol(source) {
+  const bgColor = await sampleBackground(source.full);
+  await runBatch([
+    {
+      kind: "symbol",
+      subject: source.subject,
+      hue: source.hue,
+      promptVersion: `${source.promptVersion} · ⬜ 심볼`,
+      prompt: SYMBOL_PROMPT,
+      sourceImage: source.full,
+      bgColor,
+      parentId: source.id,
+    },
+  ]);
+}
+
 async function runBatch(items) {
   showError(null);
   const quality = qualitySelectEl.value;
@@ -787,9 +848,10 @@ async function runBatch(items) {
             characterReference: state.personMode === "none" ? undefined : state.assets.characterReference,
             quality,
             model,
+            ...(r.kind === "symbol" ? { shape: "square", background: "transparent" } : {}),
           }),
         });
-        Object.assign(r, await cropOutput(data.image), { status: "done" });
+        Object.assign(r, r.kind === "symbol" ? await squareOutputs(data.image, r.bgColor) : await cropOutput(data.image), { status: "done" });
       } catch (err) {
         Object.assign(r, { status: "error", error: err.message });
       }
@@ -800,24 +862,25 @@ async function runBatch(items) {
   generateBtn.disabled = false;
 }
 
-function download(r) {
-  const a = el("a", { href: r.output, download: `${[r.subject.split("—")[0].trim(), r.hue].filter(Boolean).join("-")}-${OUTPUT.width}x${OUTPUT.height}.png` });
+function download(r, href = r.output, suffix = `${OUTPUT.width}x${OUTPUT.height}`) {
+  const a = el("a", { href, download: `${[r.subject.split("—")[0].trim(), r.hue].filter(Boolean).join("-")}-${suffix}.png` });
   a.click();
 }
 
 // Copies the 502×310 deliverable (same file as the download button).
 // The blob is handed over as a Promise so clipboard.write() runs right inside
 // the click — Safari rejects the write if anything is awaited before it.
-async function copyImage(r, btn) {
+async function copyImage(r, btn, src = r.output) {
+  const label = btn.textContent;
   try {
-    const blob = fetch(r.output).then((res) => res.blob());
+    const blob = fetch(src).then((res) => res.blob());
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     btn.textContent = "복사됨!";
   } catch (err) {
     btn.textContent = "복사 실패";
     showError(`이미지 복사가 막혔어요 (${err.name}). 이미지를 우클릭 → "이미지 복사"로 복사하거나 ⬇ 다운로드를 써주세요.`);
   }
-  setTimeout(() => (btn.textContent = "📋 복사"), 1400);
+  setTimeout(() => (btn.textContent = label), 1400);
 }
 
 // --- Result cards --------------------------------------------------------------
@@ -928,6 +991,13 @@ function renderResults() {
     }
     if (r.status === "loading") card.append(el("div", { className: "card-loading", textContent: "생성 중..." }));
     else if (r.status === "error") card.append(el("div", { className: "card-loading", textContent: `실패: ${r.error}` }));
+    else if (r.kind === "symbol")
+      card.append(
+        el("div", { className: "symbol-previews" }, [
+          el("img", { className: "symbol-preview checker", src: r.full, alt: `${r.subject} 심볼 (투명)` }),
+          el("img", { className: "symbol-preview", src: r.fullBg, alt: `${r.subject} 심볼 (배경색)` }),
+        ])
+      );
     else card.append(el("img", { className: "card-image", src: r.full, alt: r.subject }));
 
     const body = el("div", { className: "card-body" });
@@ -939,7 +1009,23 @@ function renderResults() {
       ])
     );
 
-    if (r.status === "done") {
+    if (r.status === "done" && r.kind === "symbol") {
+      const btn = (text, fn) => {
+        const b = el("button", { type: "button", className: "ghost-btn", textContent: text });
+        b.addEventListener("click", () => fn(b));
+        return b;
+      };
+      body.append(
+        el("div", { className: "card-actions" }, [
+          btn("⬇ 투명", () => download(r, r.output, `symbol-${SYMBOL_SIZE}-transparent`)),
+          btn("⬇ 배경색", () => download(r, r.outputBg, `symbol-${SYMBOL_SIZE}`)),
+        ]),
+        el("div", { className: "card-actions symbol-copy" }, [
+          btn("📋 투명 복사", (b) => copyImage(r, b, r.output)),
+          btn("📋 배경색 복사", (b) => copyImage(r, b, r.outputBg)),
+        ])
+      );
+    } else if (r.status === "done") {
       const good = el("button", { type: "button", className: `ghost-btn${r.rating === "good" ? " done" : ""}`, textContent: "👍 좋아" });
       const bad = el("button", { type: "button", className: `ghost-btn${r.rating === "bad" ? " done-bad" : ""}`, textContent: "👎 별로" });
       const dl = el("button", { type: "button", className: "ghost-btn", textContent: "⬇ 502×310" });
@@ -957,7 +1043,9 @@ function renderResults() {
         if (body.querySelector(".bad-form")) return;
         renderVariationForm(r, body);
       });
-      body.append(el("div", { className: "card-actions" }, [good, bad, copy, dl]), vary);
+      const symbol = el("button", { type: "button", className: "ghost-btn vary-btn", textContent: `⬜ 심볼 만들기 (${SYMBOL_SIZE}×${SYMBOL_SIZE})` });
+      symbol.addEventListener("click", () => generateSymbol(r));
+      body.append(el("div", { className: "card-actions" }, [good, bad, copy, dl]), vary, symbol);
     }
     card.append(body);
     resultGridEl.appendChild(card);
