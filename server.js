@@ -396,6 +396,6 @@ app.post("/api/generate", async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Icon Thumbnail Generator running at http://localhost:${PORT}`);
+  console.log(`Zone Thumbnail Generator running at http://localhost:${PORT}`);
   console.log(`Storage: ${USING_GITHUB ? `GitHub (${process.env.GITHUB_DATA_REPO})` : "local data/ folder"}`);
 });

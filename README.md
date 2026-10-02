@@ -1,4 +1,4 @@
-# Icon Thumbnail Generator
+# Zone Thumbnail Generator
 
 서비스 설명(SUBJECT)으로 파스텔 배경 + 3D UI 아이콘 썸네일(502×310)을 생성하고, 결과를 보면서 👎 피드백(구도/형태/느낌 등)으로 프롬프트를 깎는 작업용 사이트입니다.
 

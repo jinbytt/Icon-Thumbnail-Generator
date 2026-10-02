@@ -1,4 +1,4 @@
-// Icon Thumbnail Generator — prompt data
+// Zone Thumbnail Generator — prompt data
 //
 // DEFAULT_SECTIONS is prompt v1 (from the ChatGPT session). Sections can be
 // edited in the UI and saved as new versions; this file stays the baseline.
