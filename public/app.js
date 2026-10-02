@@ -523,7 +523,7 @@ function renderTypeTabs() {
   const symbolTab = el("button", {
     type: "button",
     className: `type-tab symbol-tab${state.view === "symbol" ? " selected" : ""}`,
-    textContent: "⬜ 심볼 만들기",
+    textContent: "심볼 만들기",
   });
   symbolTab.addEventListener("click", showSymbolView);
   typeTabsEl.appendChild(symbolTab);
@@ -834,7 +834,7 @@ async function generateSymbol(source) {
       kind: "symbol",
       subject: source.subject,
       hue: source.hue,
-      promptVersion: `${source.promptVersion} · ⬜ 심볼`,
+      promptVersion: `${source.promptVersion} · 심볼`,
       prompt: SYMBOL_PROMPT,
       sourceImage: source.full,
       bgColor,
@@ -879,7 +879,7 @@ function setView(view) {
   document.querySelector(".layout").hidden = view !== "types";
   document.querySelector(".board").hidden = view !== "types";
   symbolViewEl.hidden = view !== "symbol";
-  typeNameEl.textContent = view === "symbol" ? "⬜ 심볼 만들기" : currentType().name;
+  typeNameEl.textContent = view === "symbol" ? "심볼 만들기" : currentType().name;
   $("promptLabel").hidden = view === "symbol";
 }
 
@@ -1271,7 +1271,7 @@ function renderResults() {
         if (body.querySelector(".bad-form")) return;
         renderVariationForm(r, body);
       });
-      const symbol = el("button", { type: "button", className: "ghost-btn vary-btn", textContent: `⬜ 심볼 만들기 (${SYMBOL_SIZE}×${SYMBOL_SIZE})` });
+      const symbol = el("button", { type: "button", className: "ghost-btn vary-btn", textContent: `심볼 만들기 (${SYMBOL_SIZE}×${SYMBOL_SIZE})` });
       symbol.addEventListener("click", () => generateSymbol(r));
       body.append(el("div", { className: "card-actions" }, [good, bad, copy, dl]), vary, symbol);
     }
