@@ -499,10 +499,20 @@ function withBase(versions) {
   return currentType().builtIn ? [BASE_VERSION, ...versions] : versions;
 }
 
+// Tabs that can be opened right now. The others still exist (prompts and
+// feedback are kept) but show as disabled; add an id here to re-enable one.
+const ACTIVE_TYPE_IDS = ["icon"];
+
 function renderTypeTabs() {
   typeTabsEl.innerHTML = "";
   state.types.forEach((t) => {
-    const tab = el("button", { type: "button", className: `type-tab${t.id === state.typeId ? " selected" : ""}`, textContent: t.name });
+    const tab = el("button", {
+      type: "button",
+      className: `type-tab${t.id === state.typeId ? " selected" : ""}`,
+      textContent: t.name,
+      disabled: !ACTIVE_TYPE_IDS.includes(t.id),
+      title: ACTIVE_TYPE_IDS.includes(t.id) ? "" : "지금은 비활성화된 탭이에요",
+    });
     tab.addEventListener("click", () => switchType(t.id));
     typeTabsEl.appendChild(tab);
   });

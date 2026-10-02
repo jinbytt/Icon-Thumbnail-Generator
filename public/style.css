@@ -71,6 +71,15 @@ body {
   color: var(--text);
 }
 
+.type-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.type-tab:disabled:hover {
+  color: var(--text-dim);
+}
+
 .type-tab.selected {
   border-color: var(--accent);
   background: var(--accent);
