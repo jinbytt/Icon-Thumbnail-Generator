@@ -57,7 +57,8 @@
           <p id="personHint" class="hint person-hint" hidden></p>
         </div>
 
-        <div class="field">
+        <!-- Hidden for now (kept for later): style reference upload. Remove `hidden` to bring it back. -->
+        <div class="field" hidden>
           <span class="label">스타일 레퍼런스 (선택)</span>
           <div class="reference-row">
             <label class="ghost-btn" for="referenceInput">이미지 올리기</label>
@@ -69,7 +70,8 @@
 
         <div class="field">
           <label class="label" for="modelSelect">모델</label>
-          <select id="modelSelect" class="input"></select>
+          <!-- Locked to the default model (still shown); remove `disabled` to allow switching. -->
+          <select id="modelSelect" class="input" disabled></select>
         </div>
 
         <div class="field inline-fields">
