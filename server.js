@@ -325,12 +325,13 @@ app.post("/api/generate", async (req, res) => {
   const { size, qualities } = MODELS[model];
   const q = qualities.includes(quality) ? quality : "auto";
 
-  try {
-    let response;
-    // Order matters: the prompt's [ATTACHED IMAGES] note numbers them the same way.
-    // sourceImage is a previous result being varied (🔁 배리에이션).
-    const references = [parseDataUrl(sourceImage), parseDataUrl(referenceImage), await readSavedImage(characterReference)].filter(Boolean);
+  // Order matters: the prompt's [ATTACHED IMAGES] note numbers them the same way.
+  // sourceImage is a previous result being varied (🔁 배리에이션).
+  let references = [];
 
+  // Built fresh per attempt so a retry never reuses a consumed body.
+  const callOpenAI = async () => {
+    let response;
     if (references.length) {
       // References go through the edits endpoint; the prompt's rules limit
       // what each one is used for.
@@ -352,8 +353,30 @@ app.post("/api/generate", async (req, res) => {
         body: JSON.stringify({ model, prompt, size, quality: q, n: 1 }),
       });
     }
+    return { response, data: await response.json() };
+  };
 
-    const data = await response.json();
+  // Long generations (2.5 Sunburst + auto can take over a minute) sometimes
+  // lose the connection mid-response (ETIMEDOUT) or hit a transient 5xx/429.
+  // Retry those once; real API errors (bad request, safety block) are returned as-is.
+  const MAX_ATTEMPTS = 2;
+  try {
+    references = [parseDataUrl(sourceImage), parseDataUrl(referenceImage), await readSavedImage(characterReference)].filter(Boolean);
+    let response;
+    let data;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        ({ response, data } = await callOpenAI());
+        const transient = response.status === 429 || response.status >= 500;
+        if (!transient || attempt === MAX_ATTEMPTS) break;
+        console.warn(`OpenAI ${response.status} on attempt ${attempt}, retrying…`);
+      } catch (err) {
+        if (attempt === MAX_ATTEMPTS) throw err;
+        console.warn(`OpenAI connection failed on attempt ${attempt} (${err.cause?.code ?? err.message}), retrying…`);
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
     if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || "Image generation failed." });
 
     const b64 = data?.data?.[0]?.b64_json;
@@ -361,7 +384,13 @@ app.post("/api/generate", async (req, res) => {
     res.json({ image: `data:image/png;base64,${b64}`, model, quality: q });
   } catch (err) {
     console.error("Image generation error:", err);
-    res.status(500).json({ error: "Unexpected server error while generating the image." });
+    const code = err.cause?.code;
+    res.status(502).json({
+      error:
+        code === "ETIMEDOUT" || code === "ECONNRESET" || err.message === "terminated"
+          ? "OpenAI 연결이 중간에 끊겼어요 (재시도도 실패). 잠시 후 다시 해보거나 Flare 모델·낮은 품질로 바꿔보세요."
+          : "이미지 생성 중 서버 오류가 났어요.",
+    });
   }
 });
 
