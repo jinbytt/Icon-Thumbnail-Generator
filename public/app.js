@@ -43,6 +43,8 @@ const BASE_VERSION = { version: "v1", sections: DEFAULT_SECTIONS, note: "기본 
 const state = {
   types: [{ id: "icon", name: "새틴 파스텔", builtIn: true }],
   typeId: "icon", // active tab
+  view: "types", // "types" (generator tabs) | "symbol" (⬜ 심볼 만들기 batch view)
+  symbolItems: [],
   versions: [BASE_VERSION],
   loadedVersion: "v1", // version the editors were loaded from
   sections: structuredClone(DEFAULT_SECTIONS),
@@ -510,7 +512,7 @@ function renderTypeTabs() {
   state.types.forEach((t) => {
     const tab = el("button", {
       type: "button",
-      className: `type-tab${t.id === state.typeId ? " selected" : ""}`,
+      className: `type-tab${state.view === "types" && t.id === state.typeId ? " selected" : ""}`,
       textContent: t.name,
       disabled: !ACTIVE_TYPE_IDS.includes(t.id),
       title: ACTIVE_TYPE_IDS.includes(t.id) ? "" : "지금은 비활성화된 탭이에요",
@@ -518,6 +520,13 @@ function renderTypeTabs() {
     tab.addEventListener("click", () => switchType(t.id));
     typeTabsEl.appendChild(tab);
   });
+  const symbolTab = el("button", {
+    type: "button",
+    className: `type-tab symbol-tab${state.view === "symbol" ? " selected" : ""}`,
+    textContent: "⬜ 심볼 만들기",
+  });
+  symbolTab.addEventListener("click", showSymbolView);
+  typeTabsEl.appendChild(symbolTab);
   if (ALLOW_NEW_TYPES) {
     const add = el("button", { type: "button", className: "type-tab add", textContent: "+ 새 타입" });
     add.addEventListener("click", openTypeDialog);
@@ -527,6 +536,10 @@ function renderTypeTabs() {
 }
 
 async function switchType(id, { force = false } = {}) {
+  if (state.view === "symbol") {
+    setView("types");
+    if (id === state.typeId) return renderTypeTabs();
+  }
   if (!force && id === state.typeId) return;
   if (!force && !okToDiscardEdits()) return;
   showError(null);
@@ -829,6 +842,211 @@ async function generateSymbol(source) {
     },
   ]);
 }
+
+// Shared by the card button and the batch view: one API call → transparent
+// square PNG, plus a copy composited on the source's background color.
+async function requestSymbol(sourceDataUrl, bgColor) {
+  const data = await api("/api/generate", {
+    method: "POST",
+    body: JSON.stringify({
+      prompt: SYMBOL_PROMPT,
+      sourceImage: sourceDataUrl,
+      shape: "square",
+      background: "transparent",
+      quality: qualitySelectEl.value,
+      model: modelSelectEl.value,
+    }),
+  });
+  return squareOutputs(data.image, bgColor);
+}
+
+// --- ⬜ 심볼 만들기 (batch) ------------------------------------------------------
+
+const SYMBOL_CONCURRENCY = 3; // parallel API calls; keeps ~30 uploads from tripping rate limits
+
+const symbolViewEl = $("symbolView");
+const symbolInputEl = $("symbolInput");
+const symbolDropEl = $("symbolDrop");
+const symbolGridEl = $("symbolGrid");
+const symbolSummaryEl = $("symbolSummary");
+const symbolRunBtn = $("symbolRunBtn");
+const symbolZipBtn = $("symbolZipBtn");
+const symbolErrorEl = $("symbolError");
+let symbolRunning = false;
+
+function setView(view) {
+  state.view = view;
+  document.querySelector(".layout").hidden = view !== "types";
+  document.querySelector(".board").hidden = view !== "types";
+  symbolViewEl.hidden = view !== "symbol";
+  typeNameEl.textContent = view === "symbol" ? "⬜ 심볼 만들기" : currentType().name;
+  $("promptLabel").hidden = view === "symbol";
+}
+
+function showSymbolView() {
+  setView("symbol");
+  renderTypeTabs();
+  renderSymbolItems();
+}
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addSymbolFiles(files) {
+  const images = [...files].filter((f) => f.type.startsWith("image/"));
+  for (const file of images) {
+    const src = await readAsDataUrl(file);
+    state.symbolItems.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: file.name.replace(/\.[^.]+$/, ""),
+      src,
+      bgColor: await sampleBackground(src),
+      status: "ready",
+    });
+  }
+  renderSymbolItems();
+}
+
+function symbolCounts() {
+  const by = (st) => state.symbolItems.filter((i) => i.status === st).length;
+  return { total: state.symbolItems.length, ready: by("ready") + by("error"), done: by("done"), working: by("loading"), failed: by("error") };
+}
+
+function renderSymbolItems() {
+  const c = symbolCounts();
+  symbolSummaryEl.textContent = c.total
+    ? `총 ${c.total}장 · 완료 ${c.done} · 진행 중 ${c.working} · 대기 ${c.ready - c.failed}${c.failed ? ` · 실패 ${c.failed}` : ""}`
+    : "아직 올린 이미지가 없어요.";
+  symbolRunBtn.disabled = symbolRunning || c.ready === 0;
+  symbolRunBtn.textContent = symbolRunning ? "만드는 중..." : c.failed && c.ready === c.failed ? `실패한 ${c.failed}장 다시 만들기` : `심볼 만들기 (${c.ready}장)`;
+  symbolZipBtn.disabled = c.done === 0;
+
+  symbolGridEl.innerHTML = "";
+  state.symbolItems.forEach((item) => {
+    const card = el("div", { className: "card symbol-item" });
+    if (item.status !== "loading") {
+      const remove = el("button", { type: "button", className: "card-remove", textContent: "✕", title: "목록에서 빼기" });
+      remove.addEventListener("click", () => {
+        state.symbolItems = state.symbolItems.filter((x) => x !== item);
+        renderSymbolItems();
+      });
+      card.append(remove);
+    }
+    const previews = el("div", { className: "symbol-previews" }, [el("img", { className: "symbol-source", src: item.src, alt: item.name })]);
+    if (item.status === "done") {
+      previews.append(
+        el("img", { className: "symbol-preview checker", src: item.full, alt: `${item.name} 투명` }),
+        el("img", { className: "symbol-preview", src: item.fullBg, alt: `${item.name} 배경색` })
+      );
+    } else {
+      const label = { ready: "대기", loading: "생성 중...", error: `실패: ${item.error}` }[item.status];
+      previews.append(el("div", { className: `symbol-status${item.status === "error" ? " error" : ""}`, textContent: label }), el("div"));
+    }
+    card.append(previews);
+
+    const body = el("div", { className: "card-body" }, [el("div", { className: "card-meta", textContent: item.name })]);
+    if (item.status === "done") {
+      const btn = (text, fn) => {
+        const b = el("button", { type: "button", className: "ghost-btn", textContent: text });
+        b.addEventListener("click", () => fn(b));
+        return b;
+      };
+      const named = { subject: item.name, hue: null };
+      body.append(
+        el("div", { className: "card-actions" }, [
+          btn("⬇ 투명", () => download(named, item.output, `symbol-${SYMBOL_SIZE}-transparent`)),
+          btn("⬇ 배경색", () => download(named, item.outputBg, `symbol-${SYMBOL_SIZE}`)),
+          btn("📋 투명", (b) => copyImage(named, b, item.output)),
+          btn("🔁 다시", () => {
+            item.status = "ready";
+            runSymbolQueue();
+          }),
+        ])
+      );
+    }
+    card.append(body);
+    symbolGridEl.appendChild(card);
+  });
+}
+
+async function runSymbolQueue() {
+  if (symbolRunning) return renderSymbolItems();
+  symbolRunning = true;
+  symbolErrorEl.hidden = true;
+  const queue = state.symbolItems.filter((i) => i.status === "ready" || i.status === "error");
+  queue.forEach((i) => (i.status = "ready"));
+  renderSymbolItems();
+
+  const worker = async () => {
+    for (let item = queue.shift(); item; item = queue.shift()) {
+      if (!state.symbolItems.includes(item)) continue; // removed while waiting
+      item.status = "loading";
+      renderSymbolItems();
+      try {
+        Object.assign(item, await requestSymbol(item.src, item.bgColor), { status: "done" });
+      } catch (err) {
+        Object.assign(item, { status: "error", error: err.message });
+      }
+      renderSymbolItems();
+    }
+  };
+  await Promise.all(Array.from({ length: SYMBOL_CONCURRENCY }, worker));
+  symbolRunning = false;
+  renderSymbolItems();
+}
+
+async function downloadSymbolZip() {
+  if (!window.JSZip) {
+    symbolErrorEl.textContent = "ZIP 라이브러리를 불러오지 못했어요. 새로고침 후 다시 해보세요.";
+    symbolErrorEl.hidden = false;
+    return;
+  }
+  const zip = new window.JSZip();
+  const used = new Map();
+  state.symbolItems
+    .filter((i) => i.status === "done")
+    .forEach((item) => {
+      const n = (used.get(item.name) ?? 0) + 1;
+      used.set(item.name, n);
+      const base = n > 1 ? `${item.name}-${n}` : item.name;
+      const b64 = (url) => url.slice(url.indexOf(",") + 1);
+      zip.file(`transparent/${base}-symbol-${SYMBOL_SIZE}.png`, b64(item.output), { base64: true });
+      zip.file(`background/${base}-symbol-${SYMBOL_SIZE}.png`, b64(item.outputBg), { base64: true });
+      zip.file(`large-transparent/${base}-symbol-1024.png`, b64(item.full), { base64: true });
+    });
+  const blob = await zip.generateAsync({ type: "blob" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: `symbols-${SYMBOL_SIZE}-${new Date().toISOString().slice(0, 10)}.zip` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+symbolInputEl.addEventListener("change", () => {
+  addSymbolFiles(symbolInputEl.files);
+  symbolInputEl.value = "";
+});
+symbolDropEl.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  symbolDropEl.classList.add("dragging");
+});
+symbolDropEl.addEventListener("dragleave", () => symbolDropEl.classList.remove("dragging"));
+symbolDropEl.addEventListener("drop", (e) => {
+  e.preventDefault();
+  symbolDropEl.classList.remove("dragging");
+  addSymbolFiles(e.dataTransfer.files);
+});
+symbolRunBtn.addEventListener("click", runSymbolQueue);
+symbolZipBtn.addEventListener("click", downloadSymbolZip);
+$("symbolClearBtn").addEventListener("click", () => {
+  if (symbolRunning) return;
+  state.symbolItems = [];
+  renderSymbolItems();
+});
 
 async function runBatch(items) {
   showError(null);

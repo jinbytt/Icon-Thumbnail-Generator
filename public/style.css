@@ -497,6 +497,94 @@ body {
   color: var(--bad);
 }
 
+.type-tab.symbol-tab {
+  margin-left: auto;
+  border-style: dashed;
+}
+
+.symbol-view .symbol-panel {
+  margin-bottom: 16px;
+}
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 120px;
+  padding: 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.symbol-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.symbol-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.symbol-toolbar-actions .primary-btn {
+  width: auto;
+  padding: 9px 18px;
+  font-size: 14px;
+}
+
+.symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.symbol-item .symbol-previews {
+  grid-template-columns: 1.6fr 1fr 1fr;
+  align-items: center;
+}
+
+.symbol-source {
+  display: block;
+  width: 100%;
+  aspect-ratio: 251 / 155;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.symbol-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+
+.symbol-status.error {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
 .symbol-previews {
   display: grid;
   grid-template-columns: 1fr 1fr;
