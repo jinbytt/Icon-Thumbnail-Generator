@@ -205,7 +205,7 @@ Do not depict any people, faces, heads, hands, silhouettes or human figures. Com
 
 function personLines(gender) {
   const g = GENDERS.find((x) => x.id === gender) ?? GENDERS[0];
-  const who = `depict ${g.en}; for several people, make ${g.en} the main person.`;
+  const who = `depict ${g.en}; for several people, make ${g.en} the main person. Use the human reference only for drawing style, never for gender, age or appearance.`;
   // Only reached when the user turned people on (or a face/photo keyword did),
   // so this asks for a person rather than merely allowing one.
   return `People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. ${who[0].toUpperCase()}${who.slice(1)}`;

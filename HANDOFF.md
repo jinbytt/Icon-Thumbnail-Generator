@@ -36,7 +36,7 @@ node scripts/generate.js "룰렛 — 브랜드 콘셉트에 맞게 커스터마�
 
 | 파일 | 내용 |
 |---|---|
-| `prompts/thumbnail.json` | 썸네일 프롬프트(섹션별 원문), 모델·사이즈·배경색 목록·사람 규칙. **새틴 파스텔 v10** (운영 데이터에서 추출) |
+| `prompts/thumbnail.json` | 썸네일 프롬프트(섹션별 원문), 모델·사이즈·배경색 목록·사람 규칙. **새틴 파스텔 v11 (= v8)** (운영 데이터에서 추출) |
 | `prompts/symbol.txt` | 심볼 프롬프트 원문 |
 | `scripts/generate.js` | 위 두 파일을 읽어 ①~⑤를 수행하는 예제 |
 
