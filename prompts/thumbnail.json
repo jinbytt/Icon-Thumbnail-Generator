@@ -1,6 +1,6 @@
 {
   "name": "새틴 파스텔",
-  "version": "v9",
+  "version": "v10",
   "exportedFrom": "jinbytt/icon-thumbnail-data template-versions.json (production)",
   "model": "gpt-image-2.5-sunburst",
   "quality": "auto",
@@ -103,7 +103,7 @@
     {
       "id": "color",
       "label": "COLOR VARIATION — PRIORITY",
-      "text": "Use a very pale {{BACKGROUND_HUE}} as the solid pastel background hue.\nUse the object's natural, recognizable material colors as the foundation, such as wood tones, kraft-paper brown or metal gray, chosen from SUBJECT rather than a fixed palette. Natural material colors take priority over off-white; use off-white only for appropriate neutral components.\nAdd warm orange and fresh bright green as subtle brand accents on small meaningful parts, trim or supporting elements. Both should appear, but they must not dominate or replace the natural colors. Do not recolor a whole object orange or green.\nAdjust all colors to harmonize with the selected background, keeping clear separation through differences in lightness and saturation.\nThis color variation instruction takes priority over any fixed colors in the reference image. Preserve all existing shape, texture, lighting and composition instructions.\nKeep the background very pale, high in lightness and low in saturation, as if the selected pastel hue is mixed with plenty of white. The color should be softly visible without becoming vivid, intense or visually dominant. Avoid medium-tone or saturated backgrounds. Keep the objects richer in color than the background so the icon remains the main focus."
+      "text": "Use a very pale {{BACKGROUND_HUE}} as the solid pastel background hue.\nUse the object's natural, recognizable material colors as the foundation, such as wood tones, kraft-paper brown or metal gray, chosen from SUBJECT rather than a fixed palette. Natural material colors take priority over off-white; use off-white only for appropriate neutral components.\nAdd warm orange and fresh bright green as subtle brand accents on small meaningful parts, trim or supporting elements. Both should appear, but they must not dominate or replace the natural colors. Do not recolor a whole object orange or green.\nAdjust all colors to harmonize with the selected background, keeping clear separation through differences in lightness and saturation.\nPreserve all existing shape, texture, lighting and composition instructions.\nKeep the background very pale, high in lightness and low in saturation, as if the selected pastel hue is mixed with plenty of white. The color should be softly visible without becoming vivid, intense or visually dominant. Avoid medium-tone or saturated backgrounds. Keep the objects richer in color than the background so the icon remains the main focus."
     },
     {
       "id": "size",
@@ -124,11 +124,6 @@
       "id": "avoid",
       "label": "AVOID",
       "text": "Detailed equipment replicas, realistic product photography, complex scenes, unnecessary decorations, tiny hardware, text, leather grain, fabric weave, coarse bumps, heavy grunge, exaggerated thickness, heavy brown shadows, glow or bloom."
-    },
-    {
-      "id": "reference",
-      "label": "REFERENCE RULE",
-      "text": "If a style reference is attached, use it only for shape language, material finish, lighting and color treatment. Derive the icon's subject and symbols from SUBJECT. Follow the background and size instructions independently of the reference."
     }
   ]
 }
