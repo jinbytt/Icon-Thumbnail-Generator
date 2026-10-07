@@ -68,7 +68,7 @@
       "character-face"
     ],
     "noPeopleBlock": "[NO PEOPLE — PRIORITY]\nDo not depict any people, faces, heads, hands, silhouettes or human figures. Communicate SUBJECT with objects, devices and symbols only.",
-    "includeLine": "People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. Depict {{GENDER}}; for several people, make {{GENDER}} the main person. Use the human reference only for drawing style, never for gender, age or appearance.",
+    "includeLine": "People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. Depict {{GENDER}}; for several people, make {{GENDER}} the main person.",
     "genders": [
       "a man (male)",
       "a woman (female)"
