@@ -1,6 +1,6 @@
 {
   "name": "새틴 파스텔",
-  "version": "v8",
+  "version": "v9",
   "exportedFrom": "jinbytt/icon-thumbnail-data template-versions.json (production)",
   "model": "gpt-image-2.5-sunburst",
   "quality": "auto",
@@ -68,7 +68,7 @@
       "character-face"
     ],
     "noPeopleBlock": "[NO PEOPLE — PRIORITY]\nDo not depict any people, faces, heads, hands, silhouettes or human figures. Communicate SUBJECT with objects, devices and symbols only.",
-    "includeLine": "People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. Depict {{GENDER}}; for several people, make {{GENDER}} the main person. Use the human reference only for drawing style, never for gender, age or appearance.",
+    "includeLine": "People are allowed for this SUBJECT. If SUBJECT involves people — faces, photos, personality, cheering, or users interacting with the service — include one person as a clear part of the icon, combined with the main symbol. Keep it to a single person unless the concept needs more. Depict {{GENDER}}; for several people, make {{GENDER}} the main person.",
     "genders": [
       "a man (male)",
       "a woman (female)"
@@ -113,7 +113,7 @@
     {
       "id": "character",
       "label": "PEOPLE & CHARACTERS — PRIORITY",
-      "text": "When a person is needed to communicate SUBJECT, depict them as a simple flat 2D illustration character. This instruction overrides the 3D form, lighting and texture requirements for human figures only. Objects and supporting symbols should retain the specified 3D style.\n\nBuild the character from clean, solid color shapes with smooth curves, simplified proportions and a clear silhouette. Use minimal facial features, such as small dot or oval eyes. Simplify hair into a few solid shapes and hands into clear gesture shapes without detailed fingers. Communicate the intended action or emotion through an easy-to-read pose.\n\nKeep the character flat: no sculpted volume, extrusion, realistic anatomy, skin texture, glossy highlights or 3D shading. Avoid inflated toy-like bodies, oversized heads and detailed clothing. Use flat color fills without gradients or heavy outlines.\n\nCoordinate the character's colors with the overall palette, using orange and green as restrained accents on appropriate clothing or accessories. Do not copy the reference image's colors, text, background or composition.\n\nInclude a person only when their presence makes the concept clearer. Keep the composition compact and cohesive, using one main symbol and only one supporting element when necessary."
+      "text": "When a person is needed to communicate SUBJECT, depict them as a simple flat 2D illustration character. This instruction overrides the 3D form, lighting and texture requirements for human figures only. Objects and supporting symbols should retain the specified 3D style.\n\nBuild the character from clean, solid color shapes with smooth curves, simplified proportions and a clear silhouette. Use minimal facial features, such as small dot or oval eyes. Simplify hair into a few solid shapes and hands into clear gesture shapes without detailed fingers. Communicate the intended action or emotion through an easy-to-read pose.\n\nKeep the character flat: no sculpted volume, extrusion, realistic anatomy, skin texture, glossy highlights or 3D shading. Avoid inflated toy-like bodies, oversized heads and detailed clothing. Use flat color fills without gradients or heavy outlines.\n\nCoordinate the character's colors with the overall palette, using orange and green as restrained accents on appropriate clothing or accessories.\n\nInclude a person only when their presence makes the concept clearer. Keep the composition compact and cohesive, using one main symbol and only one supporting element when necessary."
     },
     {
       "id": "character-face",
